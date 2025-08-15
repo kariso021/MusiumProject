@@ -25,8 +25,8 @@ public:
 	// Sets default values for this actor's properties
 	AInteractiveActor();
 
-	/** 이 Actor의 고유 ID(Spawn될 때 자동 증가) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Identification")
+	// 에디터에서 조정 가능한 ACTOR ID
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ArtifactID")
 	int32 ActorID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")

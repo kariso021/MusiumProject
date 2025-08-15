@@ -5,6 +5,8 @@
 #include "InteractiveActor/InteractiveActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/UserWidget.h"
+#include "Widget/ArtifactInfoWidget.h"
+#include "Data/ArtifactData.h"
 #include <EngineUtils.h>
 
 // Sets default values for this component's properties
@@ -47,47 +49,38 @@ void UInteractionUIComponent::TickComponent(float DeltaTime, ELevelTick TickType
 	// ...
 }
 
+// 아티팩트 아이디 1,2,3,4,5 이렇게~
 void UInteractionUIComponent::OnActorInteracted(int32 ArtifactID)
 {
-    // 0) 플레이어 컨트롤러 참조
+	//uelog 로 ArtifactID 출력
+
+    UE_LOG(LogTemp, Display, TEXT("Interacted!! Artifact Id is %d"), ArtifactID);
     APlayerController* PC = Cast<APlayerController>(GetOwner());
-    if (!PC) return;
+    if (!PC) PC = UGameplayStatics::GetPlayerController(this, 0);
+    if (!PC || !ArtifactTable || !ArtifactWidgetClass) return;
 
-    // 1) DataTable에서 Row 찾기
-    //static const FString Context = TEXT("Lookup");
-    //FArtifactData* Row = ArtifactTable->FindRow<FArtifactData>(
-    //    *FString::FromInt(ArtifactID), Context);
-    //if (!Row) return;
-    
-
-    // 2) Widget 생성(최초에만)
+    // 1) 위젯 생성(최초 1회)
     if (!ArtifactWidget)
     {
-        ArtifactWidget = CreateWidget<UUserWidget>(
-            PC, ArtifactWidgetClass);
-        ArtifactWidget->AddToViewport();
+        ArtifactWidget = CreateWidget<UArtifactInfoWidget>(PC, ArtifactWidgetClass);
+        if (!ArtifactWidget) return;
+        ArtifactWidget->AddToViewport(100);
     }
 
-    // 3) SetData 호출
- /*   if (UFunction* Fn = ArtifactWidget->FindFunction(TEXT("SetData")))
-    {
-        struct FPayload { FArtifactData Data; };
-        FPayload Payload{ *Row };
-        ArtifactWidget->ProcessEvent(Fn, &Payload);
-    }*/
+    // 2) DataTable 직조회 -> SetData
+    const FName RowName(*LexToString(ArtifactID));
+    const FArtifactData* Row = ArtifactTable->FindRow<FArtifactData>(RowName, TEXT("Artifact Lookup"));
+    if (!Row) return;
 
-    // ────────────── 여기서부터 입력/커서 제어 ──────────────
+    ArtifactWidget->SetData(*Row);
 
-    // 4) 마우스 커서 보이기
+
+    // 3) 입력/커서 전환
     PC->bShowMouseCursor = true;
-
-    // 5) UI 전용 입력 모드로 전환
-    FInputModeUIOnly InputMode;
-    InputMode.SetWidgetToFocus(ArtifactWidget->TakeWidget());
-    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-    PC->SetInputMode(InputMode);
-
-    // 6) 캐릭터 이동·회전 입력 무시 (WASD, 마우스 회전)
+    FInputModeUIOnly Mode;
+    Mode.SetWidgetToFocus(ArtifactWidget->TakeWidget());
+    Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    PC->SetInputMode(Mode);
     PC->SetIgnoreMoveInput(true);
     PC->SetIgnoreLookInput(true);
 }

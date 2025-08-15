@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Engine/DataTable.h"
+#include "Widget/ArtifactInfoWidget.h"
 #include "InteractionUIComponent.generated.h"
 
 
@@ -27,7 +28,7 @@ public:
 	TSubclassOf<UUserWidget> ArtifactWidgetClass;
 
 private:
-	UUserWidget* ArtifactWidget = nullptr;
+	UArtifactInfoWidget* ArtifactWidget = nullptr;
 
 protected:
 	// Called when the game starts

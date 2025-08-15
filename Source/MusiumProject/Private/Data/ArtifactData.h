@@ -11,16 +11,25 @@ struct FArtifactData : public FTableRowBase
 {
 	GENERATED_BODY()
 
-	// --- 기본 정보 ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) FString Name;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) FString Era;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) FString Origin;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) FText Description;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FText Name;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FText Era;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FText Origin;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (MultiLine = true)) FText Description;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (MultiLine = true)) FText TechniqueDescription;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (MultiLine = true)) FText PatternMeaning;
 
-	// --- 이미지 ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite) UTexture2D* Photo;
+    // --- 이미지 ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)  TSoftObjectPtr<UTexture2D> Thumbnail = nullptr;
 
-	// --- 동영상 재생용 ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
-	UMediaSource* VideoSource;
+    // --- 동영상 재생용 ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
+    TSoftObjectPtr<UMediaSource> DecriptionVideoSource;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
+    TSoftObjectPtr<UMediaSource> EmotionVideoSource;
+
+
+
+
+
 };
