@@ -14,8 +14,6 @@ public:
 	SLATE_BEGIN_ARGS(SPauseMenuWidget)
 		{
 		}
-
-		// 인자(Argument)는 여기에 선언합니다.
 		SLATE_ARGUMENT(TWeakObjectPtr<AMusiumPlayerController>, OwningPlayerController)
 
 	SLATE_END_ARGS()

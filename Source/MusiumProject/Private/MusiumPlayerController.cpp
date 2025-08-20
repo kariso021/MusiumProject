@@ -48,7 +48,7 @@ void AMusiumPlayerController::SetupInputComponent()
 
 void AMusiumPlayerController::OnPauseGame()
 {
-    // 이미 메뉴가 열려있다면 닫습니다(게임 재개).
+    // 이미 메뉴가 열려있다면 닫음(게임 재개).
     if (PauseMenuWidget.IsValid())
     {
         ResumeGame();

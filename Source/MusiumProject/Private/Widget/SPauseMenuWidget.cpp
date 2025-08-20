@@ -22,7 +22,7 @@ void SPauseMenuWidget::Construct(const FArguments& InArgs)
 
 	// --- 1. [수정] 불투명 색상 및 스타일 정의 ---
 
-	// 모든 색상의 알파값(마지막 인자)을 1.0f로 변경하여 완전히 불투명하게 만듭니다.
+	// 모든 색상의 알파값(마지막 인자)을 1.0f로 변경하여 완전히 불투명하게
 	const FLinearColor PanelColor = FLinearColor(0.1f, 0.1f, 0.1f, 1.0f);        // 어두운 패널 색상 (불투명)
 	const FLinearColor TextColor = FLinearColor(0.95f, 0.95f, 0.95f, 1.0f);      // 밝은 텍스트 색상
 	const FLinearColor ButtonNormalColor = FLinearColor(0.2f, 0.2f, 0.2f, 1.0f); // 버튼 평소 색상 (불투명)
@@ -31,12 +31,10 @@ void SPauseMenuWidget::Construct(const FArguments& InArgs)
 
 	PanelBackgroundBrush = FSlateColorBrush(PanelColor);
 
-	// [수정] 그림자 효과 제거
 	TitleTextStyle = FTextBlockStyle()
 		.SetFont(FSlateFontInfo(FCoreStyle::GetDefaultFont(), 48, "Light"))
 		.SetColorAndOpacity(TextColor);
 
-	// [수정] 그림자 효과 제거 (현재 이 스타일은 진단 과정에서 사용되지 않음)
 	ButtonTextStyle = FTextBlockStyle()
 		.SetFont(FSlateFontInfo(FCoreStyle::GetDefaultFont(), 24))
 		.SetColorAndOpacity(TextColor);
@@ -77,7 +75,6 @@ void SPauseMenuWidget::Construct(const FArguments& InArgs)
 												.TextStyle(&TitleTextStyle)
 												.Text(TitleText)
 										]
-										// --- 2. [진단] 텍스트가 보이는지 확인하기 위한 단순화된 버튼 코드 ---
 										+ SVerticalBox::Slot()
 										.FillHeight(1.0f)
 										.VAlign(VAlign_Center)
@@ -119,13 +116,13 @@ void SPauseMenuWidget::Construct(const FArguments& InArgs)
 
 FReply SPauseMenuWidget::OnResumeClicked()
 {
-	// OwningPlayerController가 유효한지 확인하고 ResumeGame 함수 호출
+	// OwningPlayerController가 유효한지 확인
 	if (OwningPlayerController.IsValid())
 	{
 		OwningPlayerController.Get()->ResumeGame();
 	}
 
-	return FReply::Handled(); // 클릭 이벤트를 처리했음을 알림
+	return FReply::Handled();
 }
 FReply SPauseMenuWidget::OnQuitClicked()
 {

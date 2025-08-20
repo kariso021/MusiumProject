@@ -6,13 +6,12 @@
 
 UChattingComponent::UChattingComponent()
 {
-    // 컴포넌트가 리플리케이트(복제)되도록 설정합니다. RPC를 사용하려면 필수입니다.
     SetIsReplicated(true);
 }
 
 void UChattingComponent::SendChatMessage(const FString& Message)
 {
-    // 클라이언트에서 서버 RPC를 호출합니다.
+    // 클라이언트에서 서버 RPC를 호출
     Server_SendChatMessage(Message);
 }
 

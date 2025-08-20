@@ -10,28 +10,25 @@
 
 void UMySurveyWidget::NativeConstruct()
 {
-	Super::NativeConstruct();
+    Super::NativeConstruct();
 
-	CachedQuestionPanels.Empty();
+    CachedQuestionPanels.Empty();
 
-	if (!WidgetTree)
-	{
-		return;
-	}
+    if (!WidgetTree)
+    {
+        return;
+    }
 
-	TArray<UWidget*> AllWidgetsInTree;
-	WidgetTree->GetAllWidgets(AllWidgetsInTree);
+    TArray<UWidget*> AllWidgetsInTree;
+    WidgetTree->GetAllWidgets(AllWidgetsInTree);
 
-	// 2. 모든 위젯을 순회하며 UQuestionGroupPanel 타입인지 직접 Cast로 확인합니다.
-	for (UWidget* Widget : AllWidgetsInTree)
-	{
-		// 3. Cast를 통해 타입을 확인합니다. 성공하면 FoundPanel은 유효한 포인터가 됩니다.
-		if (UQuestionGroupPanel* FoundPanel = Cast<UQuestionGroupPanel>(Widget))
-		{
-			// 4. 타입이 맞다면, 배열에 바로 추가합니다.
-			CachedQuestionPanels.Add(FoundPanel);
-		}
-	}
+    for (UWidget* Widget : AllWidgetsInTree)
+    {
+        if (UQuestionGroupPanel* FoundPanel = Cast<UQuestionGroupPanel>(Widget))
+        {
+            CachedQuestionPanels.Add(FoundPanel);
+        }
+    }
 }
 
 UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* PanelToSearch)
@@ -61,46 +58,83 @@ UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* Pa
 
 void UMySurveyWidget::SubmitSurvey(const FString& InFileName, const FString& InSaveSlot)
 {
-	TArray<FString> SelectedIDs;
+	// 1. 데이터를 분류하여 저장할 변수들
+    TArray<FString> DemographicData; // 사전 정보 데이터 (age, sex 등)
+    TMap<FString, int32> FrequencyCounts; // 성향 조사 응답 빈도수 (Key: 응답(1,2,3...), Value: 횟수)
 
-	// 캐시된 질문 그룹 패널들을 순회
-	for (UPanelWidget* Panel : CachedQuestionPanels)
-	{
-		UMyRadioButton* SelectedButton = FindSelectedRadioButtonInPanel(Panel);
-		if (SelectedButton && !SelectedButton->RadioButtonID.IsEmpty())
-		{
-			SelectedIDs.Add(SelectedButton->RadioButtonID);
-		}
-	}
+    // 2. 캐시된 모든 질문 패널 순회
+    for (UQuestionGroupPanel* Panel : CachedQuestionPanels)
+    {
+        UMyRadioButton* SelectedButton = FindSelectedRadioButtonInPanel(Panel);
+        if (SelectedButton && !SelectedButton->RadioButtonID.IsEmpty())
+        {
+            // 3. 패널 타입에 따라 데이터 분리 처리
+            if (Panel->QuestionType == EQuestionPanelType::Demographic)
+            {
+                // 사전 정보 패널이면, ID를 그대로 배열에 추가
+                DemographicData.Add(SelectedButton->RadioButtonID);
+            }
+            else if (Panel->QuestionType == EQuestionPanelType::Frequency)
+            {
+                // 성향 조사 패널이면, 맵(Map)을 이용해 빈도수 계산
+                const FString& SelectedID = SelectedButton->RadioButtonID;
+                // FindOrAdd: 해당 ID가 맵에 있으면 기존 값을 가져오고, 없으면 0으로 새로 추가
+                // ++: 가져온 값 또는 새로 추가된 0을 1 증가시킴
+                FrequencyCounts.FindOrAdd(SelectedID)++;
+            }
+        }
+    }
 
-	if (SelectedIDs.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("SubmitSurvey: No radio buttons were selected."));
-		return;
-	}
+    // 4. 가장 많이 선택된 성향 조사 응답 찾기
+    FString MostFrequentID = TEXT("N/A"); // 결과가 없을 경우를 대비
+    int32 MaxCount = 0;
+    for (const TPair<FString, int32>& Pair : FrequencyCounts)
+    {
+        if (Pair.Value > MaxCount)
+        {
+            MaxCount = Pair.Value;
+            MostFrequentID = Pair.Key;
+        }
+    }
 
-	// CSV 저장 로직
-	FString CSVHeader = TEXT("UserID,Timestamp,Age,Gender,VisitFrequency,Education\n");
-	FString CSVRow = FString::Printf(TEXT("%s,%s,"), *InSaveSlot, *FDateTime::Now().ToIso8601());
-	CSVRow += FString::Join(SelectedIDs, TEXT(","));
-	CSVRow += TEXT("\n");
-	FString SaveDirectory = FPaths::ProjectSavedDir() + TEXT("Surveys/");
-	FString FullPath = SaveDirectory + InFileName;
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	bool bFileExists = PlatformFile.FileExists(*FullPath);
-	if (!PlatformFile.DirectoryExists(*SaveDirectory)) { PlatformFile.CreateDirectory(*SaveDirectory); }
-	FString ContentToSave = bFileExists ? CSVRow : CSVHeader + CSVRow;
-	FFileHelper::SaveStringToFile(ContentToSave, *FullPath, FFileHelper::EEncodingOptions::ForceUTF8, &IFileManager::Get(), FILEWRITE_Append);
+    // 5. 모든 데이터를 취합하여 CSV 한 줄로 만들기
+    // CSV 헤더도 새로운 데이터 구조에 맞게 수정합니다.
+    FString CSVHeader = TEXT("UserID,Timestamp,Age,Gender,VisitFrequency,Education,DominantPropensity\n");
+    FString CSVRow = FString::Printf(TEXT("%s,%s,"), *InSaveSlot, *FDateTime::Now().ToIso8601());
+    
+    // 사전 정보 추가
+    CSVRow += FString::Join(DemographicData, TEXT(","));
+    CSVRow += TEXT(","); // 사전 정보와 성향 분석 결과 사이에 쉼표 추가
+    
+    // 가장 빈도가 높았던 성향 추가
+    CSVRow += MostFrequentID;
+    CSVRow += TEXT("\n");
 
-	UE_LOG(LogTemp, Log, TEXT("Survey saved to: %s"), *FullPath);
+    // 6. 파일 저장 및 레벨 이동 (기존 코드와 동일)
+    if (DemographicData.Num() == 0 && MaxCount == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("SubmitFullSurvey: No radio buttons were selected."));
+        return;
+    }
+
+    FString SaveDirectory = FPaths::ProjectSavedDir() + TEXT("Surveys/");
+    FString FullPath = SaveDirectory + InFileName;
+    IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+    if (!PlatformFile.DirectoryExists(*SaveDirectory)) { PlatformFile.CreateDirectory(*SaveDirectory); }
+    FString ContentToSave = PlatformFile.FileExists(*FullPath) ? CSVRow : CSVHeader + CSVRow;
+    FFileHelper::SaveStringToFile(ContentToSave, *FullPath, FFileHelper::EEncodingOptions::ForceUTF8, &IFileManager::Get(), FILEWRITE_Append);
+
+    UE_LOG(LogTemp, Log, TEXT("Survey saved to: %s"), *FullPath);
+    UE_LOG(LogTemp, Log, TEXT("Dominant Propensity: %s (Count: %d)"), *MostFrequentID, MaxCount);
+
 
 
 	UWorld* World = GetWorld();
 	if (World)
 	{
-		// 이동하고 싶은 레벨의 이름을 FName 타입으로 지정합니다.
-		// "MainMenuLevel"은 예시이며, 실제 프로젝트의 레벨 이름으로 변경해야 합니다.
-		// 콘텐츠 브라우저에 있는 레벨 애셋의 이름과 정확히 일치해야 합니다.
+		// 이동하고 싶은 레벨의 이름을 FName 타입으로 지정
+		// "MainMenuLevel"은 예시이며, 실제 프로젝트의 레벨 이름으로 변경
+		// 콘텐츠 브라우저에 있는 레벨 애셋의 이름과 정확히 일치해야 함
 		FName LevelToLoad = FName("MainLevel");
 
 		// 지정된 레벨을 엽니다.
@@ -111,6 +145,47 @@ void UMySurveyWidget::SubmitSurvey(const FString& InFileName, const FString& InS
 		UE_LOG(LogTemp, Error, TEXT("UMySurveyWidget::SubmitSurvey - World is null. Cannot open new level."));
 	}
 
+    APlayerController* PlayerController = GetOwningPlayer();
+    if (PlayerController)
+    {
+        FInputModeGameOnly InputModeData;
+        PlayerController->SetInputMode(InputModeData);
+
+        PlayerController->bShowMouseCursor = false;
+    }
+
+}
+
+void UMySurveyWidget::GoToNextPanel()
+{
+    if (!SurveySwitcher)
+    {
+        UE_LOG(LogTemp, Error, TEXT("GoToNextPanel: SurveySwitcher is not bound!"));
+        return;
+    }
+
+    const int32 CurrentIndex = SurveySwitcher->GetActiveWidgetIndex();
+    const int32 NumPanels = SurveySwitcher->GetNumWidgets();
+
+    if (NumPanels == 0)
+    {
+        return;
+    }
+
+    if (CurrentIndex < NumPanels - 1)
+    {
+        UE_LOG(LogTemp, Log, TEXT("GoToNextPanel!"));
+        const int32 NextIndex = CurrentIndex + 1;
+        SurveySwitcher->SetActiveWidgetIndex(NextIndex);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("GoToNextPanel: Reached the last panel. Submitting survey..."));
+
+        const FString FileName = TEXT("SurveyResult.csv");
+        const FString SaveSlotName = TEXT("DefaultUser");
+        SubmitSurvey(FileName, SaveSlotName);
+    }
 }
 
 
