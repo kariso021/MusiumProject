@@ -21,6 +21,8 @@ class AMusiumPlayerController : public APlayerController
 public:
 	AMusiumPlayerController();
 
+	UInteractionUIComponent* GetInteractionUIComponent() const { return InteractionUIComp; }
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
 	UInteractionUIComponent* InteractionUIComp;

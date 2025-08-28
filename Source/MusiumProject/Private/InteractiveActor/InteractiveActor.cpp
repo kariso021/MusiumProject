@@ -5,6 +5,7 @@
 #include "Components/WidgetComponent.h"
 #include "InteractionInterface/IInteractionReceiver.h"
 #include "GameFramework/Character.h"
+#include "TrackingData/TrackingSubsystem.h"
 
 // Sets default values
 AInteractiveActor::AInteractiveActor()
@@ -59,6 +60,19 @@ void AInteractiveActor::OnHoverStart_Implementation()
 		isHovering = true; // 호버 상태를 true로 변경
 	}
 
+	// 호버 시작 로그 남기기용
+	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+		if (TrackingSubsystem)
+		{
+			// 어떤 유물 클릭했는지 로그 남기기
+			FString StringActorID = FString::FromInt(ActorID);
+			TrackingSubsystem->LogHoverStart(StringActorID);
+		}
+	}
+
 }
 
 void AInteractiveActor::OnHoverEnd_Implementation()
@@ -76,6 +90,21 @@ void AInteractiveActor::OnHoverEnd_Implementation()
 void AInteractiveActor::Interact_Implementation(AActor* Interactor)
 {
 	OnInteract.Broadcast(ActorID);
+
+
+	// 기록 남기기용
+	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+		if (TrackingSubsystem)
+		{
+			// 어떤 유물 클릭했는지 로그 남기기
+			FString StringActorID = FString::FromInt(ActorID);
+			TrackingSubsystem->LogPageView(StringActorID);
+		}
+	}
+	
 	//여기서 Broadcast를 한 이후, 캐릭터에서 제어
 }
 
@@ -104,7 +133,22 @@ void AInteractiveActor::HandleOverlapBegin(UPrimitiveComponent* OverlappedComp, 
 	if (OtherActor->Implements<UIInteractionReceiver>())
 	{
 		IIInteractionReceiver::Execute_EnableLineTrace(OtherActor, true);
+
+
+		UGameInstance* GameInstance = GetGameInstance();
+		if (GameInstance)
+		{
+			UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+			if (TrackingSubsystem)
+			{
+				// 어떤 유물 존에 들어왔는지 로그 남기기
+				FString StringActorID = FString::FromInt(ActorID);
+				TrackingSubsystem->LogZoneEnter(StringActorID);
+			}
+		}
+
 	}
+
 }
 
 void AInteractiveActor::HandleOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -123,6 +167,20 @@ void AInteractiveActor::HandleOverlapEnd(UPrimitiveComponent* OverlappedComp, AA
 			isHovering = false; // 호버 상태를 false로 변경
 			InteractionComponent->HoverEnd(); // InteractionComponent에서 호버 끝 처리 Glow 효과 등
 		}
+
+		UGameInstance* GameInstance = GetGameInstance();
+		if (GameInstance)
+		{
+			UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+			if (TrackingSubsystem)
+			{
+				// 어떤 유물 존에 들어왔는지 로그 남기기
+				FString StringActorID = FString::FromInt(ActorID);
+				TrackingSubsystem->LogZoneExit(StringActorID);
+			}
+		}
+
+
 		OnHoverEnd.Broadcast(ActorID, Now);
 	}
 }

@@ -7,6 +7,7 @@
 #include "Components/InteractionComponent.h"
 #include "InteractionInterface/IInteractiveTarget.h"
 #include <Components/BoxComponent.h>
+#include <MediaSoundComponent.h>
 #include "InteractiveActor.generated.h"
 
 
@@ -77,9 +78,14 @@ public:
 
 
 protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UMediaSoundComponent> MediaSoundComponent;
 
 
 public:
+
+	// 외부(플레이어)에서 이 액터의 사운드 컴포넌트를 가져갈 수 있도록 Getter 함수를 만듭니다.
+	UMediaSoundComponent* GetMediaSoundComponent() const { return MediaSoundComponent; }
 
 	// Overlap 이벤트 핸들러
 	UFUNCTION()

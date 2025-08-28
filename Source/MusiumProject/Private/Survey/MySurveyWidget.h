@@ -28,12 +28,13 @@ protected:
 
 	virtual void NativeConstruct() override;
 
+
 	// À§Á¬ ½ºÀ§Äª
 	UPROPERTY(meta = (BindWidgetOptional)) UWidgetSwitcher* SurveySwitcher;
 
+
 private:
 	UMyRadioButton* FindSelectedRadioButtonInPanel(UPanelWidget* PanelToSearch);
-
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Survey")
@@ -41,5 +42,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Survey")
 	void GoToNextPanel();
+
+
+protected:
 
 };

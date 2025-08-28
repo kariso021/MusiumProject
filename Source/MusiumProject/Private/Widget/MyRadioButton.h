@@ -22,6 +22,9 @@ public:
 	FString RadioButtonID;
 protected:
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Radio Button")
+	FText ButtonText;
+
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	UFUNCTION()
 	void OnRadioCheckStateChanged(bool bIsChecked);

@@ -4,6 +4,7 @@
 #include "Components/InteractionComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
+#include "TrackingData/TrackingSubsystem.h"
 
 
 // Sets default values for this component's properties

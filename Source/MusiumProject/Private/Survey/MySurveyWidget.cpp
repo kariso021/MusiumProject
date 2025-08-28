@@ -7,6 +7,10 @@
 #include "QuestionGroupPanel.h"
 #include "Blueprint/WidgetTree.h"
 #include "Kismet/GameplayStatics.h"
+#include "TrackingData/TrackingSubsystem.h" 
+#include "TrackingData/TrackingDataDefs.h"
+#include "Animation/WidgetAnimation.h"
+#include "TimerManager.h"
 
 void UMySurveyWidget::NativeConstruct()
 {
@@ -30,6 +34,8 @@ void UMySurveyWidget::NativeConstruct()
         }
     }
 }
+
+
 
 UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* PanelToSearch)
 {
@@ -56,105 +62,7 @@ UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* Pa
 	return nullptr;
 }
 
-void UMySurveyWidget::SubmitSurvey(const FString& InFileName, const FString& InSaveSlot)
-{
-	// 1. 데이터를 분류하여 저장할 변수들
-    TArray<FString> DemographicData; // 사전 정보 데이터 (age, sex 등)
-    TMap<FString, int32> FrequencyCounts; // 성향 조사 응답 빈도수 (Key: 응답(1,2,3...), Value: 횟수)
 
-    // 2. 캐시된 모든 질문 패널 순회
-    for (UQuestionGroupPanel* Panel : CachedQuestionPanels)
-    {
-        UMyRadioButton* SelectedButton = FindSelectedRadioButtonInPanel(Panel);
-        if (SelectedButton && !SelectedButton->RadioButtonID.IsEmpty())
-        {
-            // 3. 패널 타입에 따라 데이터 분리 처리
-            if (Panel->QuestionType == EQuestionPanelType::Demographic)
-            {
-                // 사전 정보 패널이면, ID를 그대로 배열에 추가
-                DemographicData.Add(SelectedButton->RadioButtonID);
-            }
-            else if (Panel->QuestionType == EQuestionPanelType::Frequency)
-            {
-                // 성향 조사 패널이면, 맵(Map)을 이용해 빈도수 계산
-                const FString& SelectedID = SelectedButton->RadioButtonID;
-                // FindOrAdd: 해당 ID가 맵에 있으면 기존 값을 가져오고, 없으면 0으로 새로 추가
-                // ++: 가져온 값 또는 새로 추가된 0을 1 증가시킴
-                FrequencyCounts.FindOrAdd(SelectedID)++;
-            }
-        }
-    }
-
-    // 4. 가장 많이 선택된 성향 조사 응답 찾기
-    FString MostFrequentID = TEXT("N/A"); // 결과가 없을 경우를 대비
-    int32 MaxCount = 0;
-    for (const TPair<FString, int32>& Pair : FrequencyCounts)
-    {
-        if (Pair.Value > MaxCount)
-        {
-            MaxCount = Pair.Value;
-            MostFrequentID = Pair.Key;
-        }
-    }
-
-    // 5. 모든 데이터를 취합하여 CSV 한 줄로 만들기
-    // CSV 헤더도 새로운 데이터 구조에 맞게 수정합니다.
-    FString CSVHeader = TEXT("UserID,Timestamp,Age,Gender,VisitFrequency,Education,DominantPropensity\n");
-    FString CSVRow = FString::Printf(TEXT("%s,%s,"), *InSaveSlot, *FDateTime::Now().ToIso8601());
-    
-    // 사전 정보 추가
-    CSVRow += FString::Join(DemographicData, TEXT(","));
-    CSVRow += TEXT(","); // 사전 정보와 성향 분석 결과 사이에 쉼표 추가
-    
-    // 가장 빈도가 높았던 성향 추가
-    CSVRow += MostFrequentID;
-    CSVRow += TEXT("\n");
-
-    // 6. 파일 저장 및 레벨 이동 (기존 코드와 동일)
-    if (DemographicData.Num() == 0 && MaxCount == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("SubmitFullSurvey: No radio buttons were selected."));
-        return;
-    }
-
-    FString SaveDirectory = FPaths::ProjectSavedDir() + TEXT("Surveys/");
-    FString FullPath = SaveDirectory + InFileName;
-    IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-    if (!PlatformFile.DirectoryExists(*SaveDirectory)) { PlatformFile.CreateDirectory(*SaveDirectory); }
-    FString ContentToSave = PlatformFile.FileExists(*FullPath) ? CSVRow : CSVHeader + CSVRow;
-    FFileHelper::SaveStringToFile(ContentToSave, *FullPath, FFileHelper::EEncodingOptions::ForceUTF8, &IFileManager::Get(), FILEWRITE_Append);
-
-    UE_LOG(LogTemp, Log, TEXT("Survey saved to: %s"), *FullPath);
-    UE_LOG(LogTemp, Log, TEXT("Dominant Propensity: %s (Count: %d)"), *MostFrequentID, MaxCount);
-
-
-
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		// 이동하고 싶은 레벨의 이름을 FName 타입으로 지정
-		// "MainMenuLevel"은 예시이며, 실제 프로젝트의 레벨 이름으로 변경
-		// 콘텐츠 브라우저에 있는 레벨 애셋의 이름과 정확히 일치해야 함
-		FName LevelToLoad = FName("MainLevel");
-
-		// 지정된 레벨을 엽니다.
-		UGameplayStatics::OpenLevel(World, LevelToLoad);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("UMySurveyWidget::SubmitSurvey - World is null. Cannot open new level."));
-	}
-
-    APlayerController* PlayerController = GetOwningPlayer();
-    if (PlayerController)
-    {
-        FInputModeGameOnly InputModeData;
-        PlayerController->SetInputMode(InputModeData);
-
-        PlayerController->bShowMouseCursor = false;
-    }
-
-}
 
 void UMySurveyWidget::GoToNextPanel()
 {
@@ -185,7 +93,119 @@ void UMySurveyWidget::GoToNextPanel()
         const FString FileName = TEXT("SurveyResult.csv");
         const FString SaveSlotName = TEXT("DefaultUser");
         SubmitSurvey(FileName, SaveSlotName);
+
     }
+}
+
+
+
+void UMySurveyWidget::SubmitSurvey(const FString& InFileName, const FString& InSaveSlot)
+{
+	// --- 1단계: 데이터 수집 (이 부분은 기존 코드와 동일하게 매우 잘 작성되어 있습니다) ---
+
+	// 1a. 데이터를 분류하여 저장할 변수들
+	TArray<FString> DemographicData;
+	TMap<FString, int32> FrequencyCounts;
+
+	// 1b. 캐시된 모든 질문 패널 순회하여 데이터 수집
+	for (UQuestionGroupPanel* Panel : CachedQuestionPanels)
+	{
+		UMyRadioButton* SelectedButton = FindSelectedRadioButtonInPanel(Panel);
+		if (SelectedButton && !SelectedButton->RadioButtonID.IsEmpty())
+		{
+			if (Panel->QuestionType == EQuestionPanelType::Demographic)
+			{
+				DemographicData.Add(SelectedButton->RadioButtonID);
+			}
+			else if (Panel->QuestionType == EQuestionPanelType::Frequency)
+			{
+				FrequencyCounts.FindOrAdd(SelectedButton->RadioButtonID)++;
+			}
+		}
+	}
+
+	// 1c. 응답이 하나도 없을 경우 함수 종료
+	if (DemographicData.Num() == 0 && FrequencyCounts.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SubmitSurvey: No radio buttons were selected. Nothing to submit."));
+		return;
+	}
+
+	// 1d. 가장 많이 선택된 성향 조사 응답 찾기
+	FString MostFrequentID = TEXT("N/A");
+	int32 MaxCount = 0;
+	for (const TPair<FString, int32>& Pair : FrequencyCounts)
+	{
+		if (Pair.Value > MaxCount)
+		{
+			MaxCount = Pair.Value;
+			MostFrequentID = Pair.Key;
+		}
+	}
+
+	// --- 2단계: UTrackingSubsystem과 연동 (이 부분이 핵심 변경 사항입니다) ---
+
+	// 2a. 트래킹 서브시스템 인스턴스 가져오기
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!GameInstance)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SubmitSurvey: GameInstance is null."));
+		return;
+	}
+
+	UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+	if (!TrackingSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SubmitSurvey: TrackingSubsystem is not available."));
+		return;
+	}
+
+	// 2b. FSurveyData 구조체 생성 및 수집된 데이터로 채우기
+	FSurveyData SurveyResultData;
+	SurveyResultData.SessionID = InSaveSlot; // 사용자 ID 설정
+
+	// 중요: DemographicData 배열의 순서가 UI 질문 순서와 일치한다고 가정합니다.
+	// 예를 들어, [0]: Age, [1]: Gender, [2]: VisitFrequency, [3]: Education 순서
+	if (DemographicData.Num() >= 4)
+	{
+		SurveyResultData.Age = DemographicData[0];
+		SurveyResultData.Gender = DemographicData[1];
+		SurveyResultData.VisitFrequency = DemographicData[2];
+		SurveyResultData.Education = DemographicData[3];
+	}
+
+	SurveyResultData.DominantPropensity = MostFrequentID; // 가장 많이 선택된 성향 설정
+
+	// 2c. 트래킹 서브시스템으로 데이터 전송 및 새 세션 시작 요청!
+	TrackingSubsystem->StartNewSession(SurveyResultData);
+
+	// 2d. (제거됨) 기존의 수동 CSV 파일 저장 로직은 모두 삭제합니다.
+	// FString CSVHeader = ...
+	// FString CSVRow = ...
+	// FFileHelper::SaveStringToFile(...)
+
+	// --- 3단계: 후처리 (레벨 이동 및 UI 정리, 기존 코드와 동일) ---
+
+	UE_LOG(LogTemp, Log, TEXT("Survey Submitted for User: %s. A new tracking session has started."), *InSaveSlot);
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		FName LevelToLoad = FName("MainLevel");
+		UGameplayStatics::OpenLevel(World, LevelToLoad);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("UMySurveyWidget::SubmitSurvey - World is null. Cannot open new level."));
+	}
+
+	APlayerController* PlayerController = GetOwningPlayer();
+	if (PlayerController)
+	{
+		FInputModeGameOnly InputModeData;
+		PlayerController->SetInputMode(InputModeData);
+		PlayerController->bShowMouseCursor = false;
+	}
 }
 
 

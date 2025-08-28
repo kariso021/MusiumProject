@@ -8,6 +8,7 @@
 #include "Widget/ArtifactInfoWidget.h"
 #include "Data/ArtifactData.h"
 #include <EngineUtils.h>
+#include "TrackingData/TrackingSubsystem.h"
 
 // Sets default values for this component's properties
 UInteractionUIComponent::UInteractionUIComponent()
@@ -103,5 +104,16 @@ void UInteractionUIComponent::HideArtifactUI()
 
     FInputModeGameOnly GameMode;
     PC->SetInputMode(GameMode);
+
+	UGameInstance* GameInstance = GetOwner()->GetGameInstance();
+    if (GameInstance)
+    {
+        UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+        if (TrackingSubsystem)
+        {
+            // 어떤 유물 존에 들어왔는지 로그 남기기
+            TrackingSubsystem->LogPageLeave();
+        }
+    }
 }
 
