@@ -7,6 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -89,86 +90,93 @@ void AMusiumProjectCharacter::Tick(float DeltaTime)
 	performLineTrace();
 }
 
-void AMusiumProjectCharacter::EnableLineTrace_Implementation(bool bEnable)
-{
-	bCanLineTrace = bEnable;
-	if (bEnable == false)
-	{
-		UE_LOG(LogTemp, Display, TEXT("Linetrace Disable"));
-		CurrentTarget = nullptr; // 라인트레이스 비활성화 시 타겟 초기화
-	}
-}
 
 void AMusiumProjectCharacter::ShowInteractionUI_Implementation(const FInteractionData& Data)
 {
 	// TODO: UMG 위젯을 띄워서 Data.Title/Data.Description 표시
+	// 그냥 playercontroller 에서 해서 생략.
+}
+
+void AMusiumProjectCharacter::EnteredInteractionZone_Implementation()
+{
+	OverlappingInteractionZones++;
+	//uelog 로 InteractionZones 재고싶은데
+	UE_LOG(LogTemp, Warning, TEXT("Entered Zone. Overlapping Zones Count: %d"), OverlappingInteractionZones);
+
+	if (OverlappingInteractionZones > 0)
+	{
+		SetLineTraceEnabled(true);
+	}
+}
+
+void AMusiumProjectCharacter::LeftInteractionZone_Implementation()
+{
+	OverlappingInteractionZones--;
+	UE_LOG(LogTemp, Warning, TEXT("Left Zone. Overlapping Zones Count: %d"), OverlappingInteractionZones);
+	if (OverlappingInteractionZones < 0)
+	{
+		OverlappingInteractionZones = 0;
+	}
+
+	if (OverlappingInteractionZones == 0)
+	{
+		SetLineTraceEnabled(false);
+	}
 }
 
 void AMusiumProjectCharacter::OnInteract()
 {
-	if (CurrentTarget)
+	if (CurrentTarget->Implements<UIInteractiveTarget>())
 	{
-		// 1) UObject* 로 캐스트
-		AActor* TargetActor = Cast<AActor>(CurrentTarget);
-		if (TargetActor && TargetActor->Implements<UIInteractiveTarget>())
-		{
-			// 2) Execute_Interact 에 두 인자 모두 넘기기
-			IIInteractiveTarget::Execute_Interact(TargetActor, this);
-		}
+		IIInteractiveTarget::Execute_Interact(CurrentTarget, this);
 	}
 }
 
 
-//리팩토링 필요
 void AMusiumProjectCharacter::performLineTrace()
 {
-	// 1) 뷰포인트 & 레이 끝점
 	FVector Start;
 	FRotator Rot;
-	Controller->GetPlayerViewPoint(Start, Rot);
-	FVector End = Start + Rot.Vector() * TraceDistance;
+	if (!Controller) return;
 
-	// 2) 라인트레이스
-	FHitResult Hit;
+	Controller->GetPlayerViewPoint(Start, Rot);
+	const FVector End = Start + Rot.Vector() * TraceDistance;
+
+	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit, Start, End, ECC_Visibility, Params
-	);
+	// [수정] 이제 일반 Visibility 채널로 라인트레이스를 쏩니다.
+	GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
 
-	// 3) NewTarget 결정 (오직 인터페이스 구현 대상만)
-	IIInteractiveTarget* NewTarget = nullptr;
-	if (bHit)
+	AActor* HitActor = HitResult.GetActor();
+	AActor* NewTarget = nullptr;
+
+	// 맞은 액터가 인터페이스를 가지고 있는지 확인
+	if (HitActor && HitActor->Implements<UIInteractiveTarget>())
 	{
-		AActor* HitActor = Hit.GetActor();
-		if (HitActor
-			&& HitActor->GetClass()->ImplementsInterface(UIInteractiveTarget::StaticClass()))
-		{
-			NewTarget = Cast<IIInteractiveTarget>(HitActor);
-		}
+		NewTarget = HitActor;
 	}
 
-	// 4) 타깃 변경 시에만 HoverEnd/Start 호출
-	if ((NewTarget != CurrentTarget) || (NewTarget == nullptr))
+
+	// 타겟이 변경되었는지 확인
+	if (NewTarget != CurrentTarget)
 	{
-		// 이전 타깃이 있으면 HoverEnd
+		// 이전 타겟이 있었다면 HoverEnd 호출
 		if (CurrentTarget)
 		{
-			AActor* PrevActor = Cast<AActor>(CurrentTarget);
-			CurrentTarget->Execute_OnHoverEnd(PrevActor);
-			UE_LOG(LogTemp, Display, TEXT("hoveringend 실행됨"));
+			IIInteractiveTarget::Execute_OnHoverEnd(CurrentTarget);
 		}
-		// 새 타깃이 있으면 HoverStart
+
+		// 새로운 타겟이 있다면 HoverStart 호출
 		if (NewTarget)
 		{
-			AActor* NewActor = Cast<AActor>(NewTarget);
-			NewTarget->Execute_OnHoverStart(NewActor);
+			IIInteractiveTarget::Execute_OnHoverStart(NewTarget);
 		}
-		// 상태 갱신
+
+		// 현재 타겟 갱신
 		CurrentTarget = NewTarget;
 	}
 }
-
 
 
 

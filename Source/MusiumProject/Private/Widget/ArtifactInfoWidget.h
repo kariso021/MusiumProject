@@ -190,7 +190,4 @@ private:
 		UFUNCTION()
 		void HandlePlaybackEnded();
 
-		UFUNCTION()
-		void HandleSeekCompleted();
-
 };

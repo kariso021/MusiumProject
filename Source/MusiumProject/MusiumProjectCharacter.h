@@ -84,19 +84,30 @@ public:
 
 public:
 	// IInteractionReceiver 구현
-	virtual void EnableLineTrace_Implementation(bool bEnable) override;
 	virtual void ShowInteractionUI_Implementation(const FInteractionData& Data) override;
-
+	virtual void EnteredInteractionZone_Implementation() override;
+	virtual void LeftInteractionZone_Implementation() override;
 
 
 private:
 	bool bCanLineTrace = false;
-	IIInteractiveTarget* CurrentTarget = nullptr;
-	float TraceDistance = 1000.f;
+	float TraceDistance = 500.f;
 
 	void OnInteract();
 
 	void performLineTrace();
+
+	/** 현재 플레이어가 겹쳐있는 상호작용 영역의 개수 (참조 카운터) */
+	int32 OverlappingInteractionZones = 0;
+
+	void SetLineTraceEnabled(bool bEnabled) { bCanLineTrace = bEnabled; }
+
+
+protected:
+	UPROPERTY()
+	AActor* CurrentTarget;
+
+
 
 
 };

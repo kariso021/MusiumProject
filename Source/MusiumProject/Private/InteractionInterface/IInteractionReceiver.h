@@ -25,11 +25,17 @@ class IIInteractionReceiver
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 
-    /** 라인트레이스 가능/불가 토글 */
+
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
-    void EnableLineTrace(bool bEnable);
+    void  EnteredInteractionZone();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
+    void LeftInteractionZone();
 
     /** 인터랙션 UI 표시 */
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
     void ShowInteractionUI(const FInteractionData& Data);
+
+
+
 };

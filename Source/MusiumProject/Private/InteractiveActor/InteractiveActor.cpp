@@ -19,27 +19,25 @@ AInteractiveActor::AInteractiveActor()
 	SceneRootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = SceneRootComponent;
 
-
-	// 기본매쉬
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	MeshComponent->SetupAttachment(RootComponent);
 
-	//충돌 범위용 박스 컴포넌트
+
+	// [핵심] 기본적으로 플레이어의 라인트레이스(Visibility)를 무시하도록 설정
+	MeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 	BoxComponent->SetupAttachment(RootComponent);
-	BoxComponent->SetBoxExtent(FVector(100.f));                   // 기본 크기
-	BoxComponent->SetCollisionProfileName(TEXT("Trigger"));      // 채널은 Trigger로 설정
-
+	BoxComponent->SetBoxExtent(FVector(100.f));
+	BoxComponent->SetCollisionProfileName(TEXT("Trigger"));
 	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &AInteractiveActor::HandleOverlapBegin);
 	BoxComponent->OnComponentEndOverlap.AddDynamic(this, &AInteractiveActor::HandleOverlapEnd);
 
-	// InteractionWidget 컴포넌트
 	InteractionWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("InteractionWidget"));
 	InteractionWidget->SetupAttachment(RootComponent);
 	InteractionWidget->SetHiddenInGame(false);
 	InteractionWidget->SetVisibility(true);
 
-	// InteractionComponent 컴포넌트
 	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("InteractionComponent"));
 
 
@@ -132,7 +130,13 @@ void AInteractiveActor::HandleOverlapBegin(UPrimitiveComponent* OverlappedComp, 
 {
 	if (OtherActor->Implements<UIInteractionReceiver>())
 	{
-		IIInteractionReceiver::Execute_EnableLineTrace(OtherActor, true);
+		if (MeshComponent)
+		{
+			MeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+		}
+		// 플레이어에게 영역 진입을 알림
+		IIInteractionReceiver::Execute_EnteredInteractionZone(OtherActor);
+	}
 
 
 		UGameInstance* GameInstance = GetGameInstance();
@@ -147,26 +151,25 @@ void AInteractiveActor::HandleOverlapBegin(UPrimitiveComponent* OverlappedComp, 
 			}
 		}
 
-	}
-
 }
 
 void AInteractiveActor::HandleOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (OtherActor->Implements<UIInteractionReceiver>())
+	if (OtherActor && OtherActor->Implements<UIInteractionReceiver>())
 	{
-		// 호버가 끝났을 때, LineTrace를 비활성화
-		IIInteractionReceiver::Execute_EnableLineTrace(OtherActor, false); // 이름을 잘못지었군
-		// 호버 종료 이벤트 호출
-
-		// OnHoverEnd 이벤트 호출
-		float Now = GetWorld()->GetTimeSeconds();
 		if (isHovering)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Hovering End"));
-			isHovering = false; // 호버 상태를 false로 변경
-			InteractionComponent->HoverEnd(); // InteractionComponent에서 호버 끝 처리 Glow 효과 등
+			OnHoverEnd_Implementation();
 		}
+
+		// 영역에서 나갔을 때, 자신의 메쉬가 라인트레이스를 '무시(Ignore)'하도록 되돌려야 합니다.
+		if (MeshComponent)
+		{
+			MeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+		}
+
+		// 플레이어에게 "인터랙션 영역에서 나갔다"고 알려줍니다.
+		IIInteractionReceiver::Execute_LeftInteractionZone(OtherActor);
 
 		UGameInstance* GameInstance = GetGameInstance();
 		if (GameInstance)
@@ -174,13 +177,10 @@ void AInteractiveActor::HandleOverlapEnd(UPrimitiveComponent* OverlappedComp, AA
 			UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
 			if (TrackingSubsystem)
 			{
-				// 어떤 유물 존에 들어왔는지 로그 남기기
+				// 어떤 유물 존에서 나갔는지 로그 남기기 -> 이거 안해도 상관없을듯
 				FString StringActorID = FString::FromInt(ActorID);
 				TrackingSubsystem->LogZoneExit(StringActorID);
 			}
 		}
-
-
-		OnHoverEnd.Broadcast(ActorID, Now);
 	}
 }
