@@ -131,7 +131,7 @@ void UMySurveyWidget::SubmitSurvey()
 	UE_LOG(LogTemp, Log, TEXT("Survey Submitted for User: %s. A new tracking session has started."), *InSaveSlot);
 
 	// --- 3단계: 레벨 이동 ---
-	UGameplayStatics::OpenLevel(GetWorld(), FName("MainLevel"));
+	UGameplayStatics::OpenLevel(GetWorld(), FName("Main"));
 
 	APlayerController* PlayerController = GetOwningPlayer();
 	if (PlayerController)
