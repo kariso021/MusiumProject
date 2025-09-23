@@ -27,6 +27,13 @@ void UMySurveyWidget::NativeConstruct()
         return;
     }
 
+	ProgressBarAnimSpeed = 3.0f;
+
+	if (SurveyProgressBar)
+	{
+		SurveyProgressBar->SetPercent(CurrentPercent);
+	}
+
     TArray<UWidget*> AllWidgetsInTree;
     WidgetTree->GetAllWidgets(AllWidgetsInTree);
 
@@ -51,6 +58,23 @@ void UMySurveyWidget::NativeConstruct()
 }
 
 
+
+void UMySurveyWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (!FMath::IsNearlyEqual(CurrentPercent, TargetPercent))
+	{
+		// FInterpTo를 사용해 현재 값을 목표 값으로 부드럽게 이동시킵니다.
+		CurrentPercent = FMath::FInterpTo(CurrentPercent, TargetPercent, InDeltaTime, ProgressBarAnimSpeed);
+
+		// 실제 ProgressBar에 변경된 값을 적용합니다.
+		if (SurveyProgressBar)
+		{
+			SurveyProgressBar->SetPercent(CurrentPercent);
+		}
+	}
+}
 
 UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* PanelToSearch)
 {
@@ -171,60 +195,74 @@ void UMySurveyWidget::StartFrequencySurvey()
 
 void UMySurveyWidget::TransitionToNextFrequencyQuestion()
 {
-	// 1. 질문 카운터를 1 증가
+	// 1. 질문 카운터 증가
 	CurrentFrequencyQuestionIndex++;
 
-	// ProgressBar 업데이트 로직
 	const int32 TotalQuestions = FrequencyQuestionRows.Num();
-	if (SurveyProgressBar && ProgressText) // 위젯들이 유효한지 확인
+	if (TotalQuestions > 0)
 	{
-		if (TotalQuestions > 0)
-		{
-			// 1. 진행률 계산 (0.0 ~ 1.0 사이의 float 값)
-			// (float)를 붙여서 정수 나눗셈이 아닌 실수 나눗셈을 하도록 합니다.
-			const float NewPercent = (float)CurrentFrequencyQuestionIndex / (float)TotalQuestions;
-			SurveyProgressBar->SetPercent(NewPercent);
+		// 2. ProgressBar 애니메이션 목표값 설정 (NativeTick에서 이 값을 보고 애니메이션 시작)
+		TargetPercent = (float)CurrentFrequencyQuestionIndex / (float)TotalQuestions;
 
-			// 2. 텍스트 업데이트 (예: "1 / 10")
-			// CurrentFrequencyQuestionIndex가 TotalQuestions를 넘지 않도록 FMath::Min 사용
+		// 진행 텍스트는 즉시 업데이트
+		if (ProgressText)
+		{
 			const int32 DisplayQuestionNumber = FMath::Min(CurrentFrequencyQuestionIndex, TotalQuestions);
 			FString ProgressString = FString::Printf(TEXT("%d / %d"), DisplayQuestionNumber, TotalQuestions);
 			ProgressText->SetText(FText::FromString(ProgressString));
 		}
 	}
 
-
+	// 3. 마지막 질문이었는지 확인 후 결과 화면으로 이동
 	if (!FrequencyQuestionRows.IsValidIndex(CurrentFrequencyQuestionIndex))
 	{
-		ShowResultScreen();
+		// Fade Out 후 결과 화면을 보여주기 위해 타이머 사용
+		if (FadeOut_QuestionAnimation)
+		{
+			if (CurrentFrequencyQuestionIndex != 0)
+			{
+				PlayAnimation(FadeOut_QuestionAnimation);
+				GetWorld()->GetTimerManager().SetTimer(TransitionTimerHandle, this, &UMySurveyWidget::ShowResultScreen, FadeOut_QuestionAnimation->GetEndTime());
+			}
+		}
+		else
+		{
+			ShowResultScreen();
+		}
 		return;
 	}
 
-	// 3. 아직 질문이 남았다면, 다음 질문 내용을 표시하는 함수를 호출합니다.
-	// (애니메이션이 있다면 재생하고, 애니메이션이 끝난 후 호출되도록 타이머를 설정합니다)
-	//if (FadeOut_Animation)
-	//{
-	//	PlayAnimation(FadeOut_Animation);
-	//	GetWorld()->GetTimerManager().SetTimer(
-	//		TransitionTimerHandle, this, &UMySurveyWidget::OnFadeOutFinished_UpdateFrequencyQuestion, FadeOut_Animation->GetEndTime());
-	//}
-	OnFadeOutFinished_UpdateFrequencyQuestion();
-
-	UE_LOG(LogTemp, Display, TEXT("1번지점 "));
-
+	if (CurrentFrequencyQuestionIndex == 0)
+	{
+		OnFadeOutFinished_UpdateFrequencyQuestion();
+	}
+	else
+	{
+		if (FadeOut_QuestionAnimation)
+		{
+			PlayAnimation(FadeOut_QuestionAnimation);
+			GetWorld()->GetTimerManager().SetTimer(
+				TransitionTimerHandle,
+				this,
+				&UMySurveyWidget::OnFadeOutFinished_UpdateFrequencyQuestion,
+				FadeOut_QuestionAnimation->GetEndTime()
+			);
+		}
+		else
+		{
+			OnFadeOutFinished_UpdateFrequencyQuestion();
+		}
+	}
 }
 
 
 void UMySurveyWidget::OnFadeOutFinished_UpdateFrequencyQuestion()
 {
-	// 1. 현재 질문 인덱스에 맞는 데이터 행을 배열에서 가져옵니다.
+	// 1. 현재 질문 인덱스에 맞는 데이터 행을 가져옵니다.
 	const FSurveyFrequencyQuestionRow* Data = FrequencyQuestionRows[CurrentFrequencyQuestionIndex];
-	if (!Data)
-	{
-		return;
-	}
+	if (!Data) return;
 
-	// 2. 메인 질문 TextBlock의 텍스트를 변경합니다.
+	// 2. 텍스트 등 위젯 내용을 업데이트합니다. (현재 화면은 투명한 상태)
 	FrequencyQuestionText->SetText(FText::FromString(Data->QuestionText));
 
 	auto UpdateTextState = [](UTextBlock* TextBlock, const FString& Text)
@@ -237,18 +275,17 @@ void UMySurveyWidget::OnFadeOutFinished_UpdateFrequencyQuestion()
 				TextBlock->SetText(FText::FromString(Text));
 			}
 		};
-
-	// 텍스트 위젯들의 내용과 보이기/숨김 상태를 업데이트
 	UpdateTextState(FrequencyAnswerText1, Data->Answer1_Text);
 	UpdateTextState(FrequencyAnswerText2, Data->Answer2_Text);
 	UpdateTextState(FrequencyAnswerText3, Data->Answer3_Text);
 	UpdateTextState(FrequencyAnswerText4, Data->Answer4_Text);
 	UpdateTextState(FrequencyAnswerText5, Data->Answer5_Text);
 
-	//if (FadeIn_Animation)
-	//{
-	//	PlayAnimation(FadeIn_Animation);
-	//}
+	// 3. 내용 업데이트가 끝났으니, Fade In 애니메이션을 재생합니다.
+	if (FadeIn_QuestionAnimation)
+	{
+		PlayAnimation(FadeIn_QuestionAnimation);
+	}
 }
 
 void UMySurveyWidget::OnFrequencyAnswerClicked(int32 numbers)

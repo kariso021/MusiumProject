@@ -47,8 +47,8 @@ void SPauseMenuWidget::Construct(const FArguments& InArgs)
 		.SetPressedPadding(FMargin(15.f));
 
 	const FText TitleText = FText::FromString(TEXT("PAUSED"));
-	const FText ResumeText = FText::FromString(TEXT("RESUME"));
-	const FText QuitText = FText::FromString(TEXT("QUIT"));
+	const FText ResumeText = FText::FromString(TEXT("Resume"));
+	const FText QuitText = FText::FromString(TEXT("Exit"));
 	const FMargin ButtonPadding = FMargin(0.f, 15.f);
 
 	ChildSlot

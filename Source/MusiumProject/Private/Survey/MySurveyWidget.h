@@ -38,6 +38,8 @@ protected:
 	// 위젯 스위칭
 	UPROPERTY(meta = (BindWidgetOptional)) UWidgetSwitcher* SurveySwitcher;
 
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
 
 private:
 	UMyRadioButton* FindSelectedRadioButtonInPanel(UPanelWidget* PanelToSearch);
@@ -115,4 +117,18 @@ protected:
 	// 맨 마지막 결과창
 
 	void ShowResultScreen();
+
+
+	//질문 애니메이션 함수들
+	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	TObjectPtr<UWidgetAnimation> FadeIn_QuestionAnimation;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	TObjectPtr<UWidgetAnimation> FadeOut_QuestionAnimation;
+
+	float CurrentPercent;
+	float TargetPercent;
+	float ProgressBarAnimSpeed;
+
+	FTimerHandle TransitionTimerHandle;
 };
