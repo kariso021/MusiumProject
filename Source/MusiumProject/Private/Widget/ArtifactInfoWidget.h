@@ -124,8 +124,11 @@ private:
 
 	// 재생/일시정지 아이콘을 바꿀 수 있도록 Image 위젯으로 가정
 	UPROPERTY(meta = (BindWidget))
-	UImage* Img_PlayPauseIcon;
+	UImage* Img_PlayPauseIcon_Video;
 
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Img_PlayPauseIcon_EmotionVideo;
 
 
 	UPROPERTY(meta = (BindWidget))

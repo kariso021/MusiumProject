@@ -42,6 +42,11 @@ void UArtifactInfoWidget::NativeConstruct()
 	{
 		Btn_PlayPause_EmotionVideo->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnPlayPauseClicked);
 	}
+
+	if(Btn_PlayPause_Video)
+	{
+		Btn_PlayPause_Video->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnPlayPauseClicked);
+	}
 	
 
 	// ===== 핵심 변경 사항: MediaPlayer 이벤트에 함수 바인딩 =====
@@ -317,10 +322,12 @@ void UArtifactInfoWidget::OnBtnVideoClicked()
 					MediaPlayer->OnMediaOpened.AddUniqueDynamic(this, &UArtifactInfoWidget::OnMediaOpened_AttachSound);
 					MediaPlayer->OpenSource(LoadedSource);
 
-					if (Img_PlayPauseIcon && PauseIcon)
+					if (Img_PlayPauseIcon_Video && PauseIcon)
 					{
-						Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+						Img_PlayPauseIcon_Video->SetBrushFromTexture(PauseIcon);
 					}
+
+
 				}
 			});
 	}
@@ -357,9 +364,9 @@ void UArtifactInfoWidget::OnBtnEmotionClicked()
 				if (MediaPlayer && LoadedSource)
 				{
 					MediaPlayer->OpenSource(LoadedSource);
-					if (Img_PlayPauseIcon && PauseIcon)
+					if (Img_PlayPauseIcon_EmotionVideo && PauseIcon)
 					{
-						Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+						Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PauseIcon);
 					}
 				}
 			});
@@ -465,24 +472,35 @@ void UArtifactInfoWidget::HideVideoHoverPanel()
 // ===== 변경됨: OnPlayPauseClicked 함수 대폭 단순화 =====
 void UArtifactInfoWidget::OnPlayPauseClicked()
 {
-	if (!MediaPlayer) return;
+	if (!MediaPlayer || !Switch_Content) return;
 
-	// Start/StopPlaybackTracking을 직접 호출할 필요가 없습니다.
-	// Play/Pause 명령에 따라 이벤트가 발생하여 자동으로 처리됩니다.
+	UWidget* ActiveWidget = Switch_Content->GetActiveWidget();
+
 	if (MediaPlayer->IsPlaying())
 	{
 		MediaPlayer->Pause();
-		if (Img_PlayPauseIcon && PlayIcon)
+
+		// 활성화된 패널에 따라 올바른 '재생' 아이콘으로 변경합니다.
+		if (ActiveWidget == card_Video && Img_PlayPauseIcon_Video && PlayIcon)
 		{
-			Img_PlayPauseIcon->SetBrushFromTexture(PlayIcon);
+			Img_PlayPauseIcon_Video->SetBrushFromTexture(PlayIcon);
+		}
+		else if (ActiveWidget == card_Emotion && Img_PlayPauseIcon_EmotionVideo && PlayIcon)
+		{
+			Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PlayIcon);
 		}
 	}
 	else
 	{
 		MediaPlayer->Play();
-		if (Img_PlayPauseIcon && PauseIcon)
+
+		if (ActiveWidget == card_Video && Img_PlayPauseIcon_Video && PauseIcon)
 		{
-			Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+			Img_PlayPauseIcon_Video->SetBrushFromTexture(PauseIcon);
+		}
+		else if (ActiveWidget == card_Emotion && Img_PlayPauseIcon_EmotionVideo && PauseIcon)
+		{
+			Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PauseIcon);
 		}
 	}
 }
@@ -547,21 +565,37 @@ void UArtifactInfoWidget::HandlePlaybackEnded()
 {
 	// 재생이 완료되면 추적을 멈추고 UI를 리셋합니다.
 	StopPlaybackTracking();
-
-
-
 	if (MediaPlayer)
 	{
 		MediaPlayer->Pause();
 		MediaPlayer->Seek(FTimespan::Zero());
 	}
-	if (Img_PlayPauseIcon && PlayIcon)
+
+	if (Switch_Content)
 	{
-		Img_PlayPauseIcon->SetBrushFromTexture(PlayIcon);
-	}
-	if (Slider_Video)
-	{
-		Slider_Video->SetValue(0.0f);
+		UWidget* ActiveWidget = Switch_Content->GetActiveWidget();
+		if (ActiveWidget == card_Video)
+		{
+			if (Img_PlayPauseIcon_Video && PlayIcon)
+			{
+				Img_PlayPauseIcon_Video->SetBrushFromTexture(PlayIcon);
+			}
+			if (Slider_Video)
+			{
+				Slider_Video->SetValue(0.0f);
+			}
+		}
+		else if (ActiveWidget == card_Emotion)
+		{
+			if (Img_PlayPauseIcon_EmotionVideo && PlayIcon)
+			{
+				Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PlayIcon);
+			}
+			if (Slider_EmotionVideo)
+			{
+				Slider_EmotionVideo->SetValue(0.0f);
+			}
+		}
 	}
 	
 }
