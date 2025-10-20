@@ -11,9 +11,9 @@
 #include <MediaSoundComponent.h>
 #include "MediaSource.h"
 #include <Components/Slider.h>
+#include <Components/Border.h>
+#include "Sound/GlobalSoundManager.h"
 #include "ArtifactInfoWidget.generated.h"
-
-
 
 class UButton;
 class UImage;
@@ -38,6 +38,8 @@ public:
     UMediaSoundComponent* MediaSoundComponent;
 
 
+
+
 protected:
     virtual void NativeConstruct() override;
 
@@ -45,54 +47,53 @@ protected:
 
     // 바인딩
     UPROPERTY(meta = (BindWidget)) UTextBlock* NameText;
-    UPROPERTY(meta = (BindWidget)) UTextBlock* EraText;
-    UPROPERTY(meta = (BindWidget)) UTextBlock* OriginText;
-    UPROPERTY(meta = (BindWidget)) UTextBlock* DescriptionText;
 
-    UPROPERTY(meta = (BindWidget)) UTextBlock* TechText;
+	UPROPERTY(meta = (BindWidget)) UTextBlock* DiscriptionNameText;
 
-	UPROPERTY(meta = (BindWidget)) UTextBlock* PatternMeaningText;
+
+    UPROPERTY(meta = (BindWidget)) UImage* TechImage;
+
+	UPROPERTY(meta = (BindWidget)) UImage*	DiscriptionImage;
+
+	UPROPERTY(meta = (BindWidget)) UImage* PatternMeaningImage;
+
+	UPROPERTY(meta = (BindWidget)) UImage* SimilarItemImage;
 
     UPROPERTY(meta = (BindWidget)) UImage* Img_main;
 
+	UPROPERTY(meta = (BindWidget)) UImage* Img_DiscriptionThumbnail;
 
+	
 
 
     //스위칭 및 판넬
 
     UPROPERTY(meta = (BindWidgetOptional)) UWidgetSwitcher* Switch_Content;
 
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Basic;
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Meaning;
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Tech;
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Similar;
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Video;
-    UPROPERTY(meta = (BindWidgetOptional)) UWidget* Panel_Emotion;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Basic;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Meaning;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Tech;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Similar;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Video;
+    UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Emotion;
+
+	UPROPERTY(meta = (BindWidgetOptional)) UWidget* card_Explain;
 
 
 
-
-    // 버튼들
-    UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_CloseIcon;
-   
-    UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Basic;
-	UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Tech;
-	UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Meaning;
-    UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Similar;
-	UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Video;
-    UPROPERTY(meta = (BindWidgetOptional)) UButton* Btn_Emotion;
 	// 버튼 클릭 이벤트 핸들러
 	UFUNCTION()
   
     void SwitchTo(UWidget* Panel);
 
 
-    UFUNCTION() void OnBtnBasicClicked();
-    UFUNCTION() void OnBtnTechClicked();
-    UFUNCTION() void OnBtnMeaningClicked();
-    UFUNCTION() void OnBtnSimilarClicked();
-    UFUNCTION() void OnBtnVideoClicked();
-    UFUNCTION() void OnBtnEmotionClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnBasicClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnTechClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnMeaningClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnSimilarClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnVideoClicked();
+    UFUNCTION(BlueprintCallable) void OnBtnEmotionClicked();
+	UFUNCTION(BlueprintCallable) void OnBtnExplainClicked();
 
 	// 위젯 종료 버튼 함수
 	UFUNCTION(BlueprintCallable, Category = "CloseWidget")
@@ -101,24 +102,37 @@ protected:
 
 private:
 
+	UPROPERTY()
+	AGlobalSoundManager* GlobalSoundManager;
+
+
     TSoftObjectPtr<UTexture2D> ThumbnailSource;
+	TSoftObjectPtr<UTexture2D> TechImageSource;
+	TSoftObjectPtr<UTexture2D> PatternMeaningImageSource;
+	TSoftObjectPtr<UTexture2D> SimilarItemImageSource;
+	TSoftObjectPtr<UTexture2D> DescriptionImageSource;
     TSoftObjectPtr<UMediaSource> DescriptionVideoSource;
     TSoftObjectPtr<UMediaSource> EmotionVideoSource;
 
     // 비디오 관련 변수 함수들
 
 	UPROPERTY(meta = (BindWidget))
-	UButton* Btn_PlayPause;
+	UButton* Btn_PlayPause_Video;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* Btn_PlayPause_EmotionVideo;
 
 	// 재생/일시정지 아이콘을 바꿀 수 있도록 Image 위젯으로 가정
 	UPROPERTY(meta = (BindWidget))
 	UImage* Img_PlayPauseIcon;
 
-	UPROPERTY(meta = (BindWidget))
-	USlider* Slider_Volume;
+
 
 	UPROPERTY(meta = (BindWidget))
 	USlider* Slider_Video;
+
+	UPROPERTY(meta = (BindWidget))
+	USlider* Slider_EmotionVideo;
 
 	// --- 새로 추가할 텍스처 변수들 (블루프린트에서 설정) ---
 	UPROPERTY(EditAnywhere, Category = "Media|Icons")
@@ -127,13 +141,40 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Media|Icons")
 	UTexture2D* PauseIcon;
 
+	// 비디오 슬라이더 및 기능들 Hover 하게끔 하는 기능
 
-	// --- 새로 추가할 함수들 ---
+	UPROPERTY(meta = (BindWidget))
+	UButton* HoverButton_EmotionVideo;
+
+	UPROPERTY(meta = (BindWidget))
+	UPanelWidget* HoverPanel_Emotion;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* HoverButton_Video;
+	UPROPERTY(meta = (BindWidget))
+	UPanelWidget* HoverPanel_Video;
+
+	UFUNCTION()
+	void ShowEmotionHoverPanel();
+
+	UFUNCTION()
+	void HideEmotionHoverPanel();
+
+	UFUNCTION()
+	void ShowVideoHoverPanel();
+
+	UFUNCTION()
+	void HideVideoHoverPanel();
+
+
+
+
+
+
+
 	UFUNCTION()
 	void OnPlayPauseClicked();
 
-	UFUNCTION()
-	void OnVolumeChanged(float Value);
 
 	// 비디오 슬라이더를 유저가 직접 조작할 때를 위한 함수들
 	UFUNCTION()
@@ -189,5 +230,13 @@ private:
 
 		UFUNCTION()
 		void HandlePlaybackEnded();
+
+		UFUNCTION()
+		void OnMediaOpened_AttachSound(FString OpenedUrl);
+
+
+
+		private:
+			// 마우스가 컨테이너에 들어왔을 때 호출될 함
 
 };

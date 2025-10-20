@@ -126,7 +126,7 @@ void AMusiumProjectCharacter::LeftInteractionZone_Implementation()
 
 void AMusiumProjectCharacter::OnInteract()
 {
-	if (CurrentTarget->Implements<UIInteractiveTarget>())
+	if (CurrentTarget && CurrentTarget->Implements<UIInteractiveTarget>())
 	{
 		IIInteractiveTarget::Execute_Interact(CurrentTarget, this);
 	}
