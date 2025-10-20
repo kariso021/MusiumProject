@@ -6,52 +6,38 @@
 #include "Components/CheckBox.h"
 #include "MyRadioButton.generated.h"
 
-
-
-UENUM(BlueprintType)
-enum class ERadioSelectionMode : uint8
-{
-	// 단일 선택 (기존과 동일)
-	Single,
-	// 다중 선택 (제한 없음)
-	Multiple,
-	// 다중 선택 (개수 제한)
-	LimitedMultiple
-};
-
-
+class UPanelWidget;
 
 UCLASS()
-class UMyRadioButton : public UCheckBox
+class YOURPROJECT_API UMyRadioButton : public UCheckBox
 {
-	GENERATED_BODY()
-	
-
-
+    GENERATED_BODY()
 
 public:
+    // ... (기존 SelectionMode, MaxSelectionLimit 프로퍼티)
 
-	// RadioButton의 선택 모드
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "My Radio Button")
-	ERadioSelectionMode SelectionMode = ERadioSelectionMode::Single;
+    /** The color to use for the foreground when the button is in a 'dimmed' state. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Style")
+    FLinearColor DimmedColor = FLinearColor::Gray;
 
-	// 'LimitedMultiple' 모드일 때만 활성화되어 최대 선택 개수를 지정
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "My Radio Button", meta = (EditCondition = "SelectionMode == ERadioSelectionMode::LimitedMultiple"))
-	int32 MaxSelectionLimit = 3;
-
-	// 기존의 RadioButtonID (선택사항)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "My Radio Button")
-	FString RadioButtonID;
-
+    /**
+     * 그룹으로 묶을 라디오 버튼들을 담고 있는 패널입니다.
+     * 이 값을 지정하면 GetParent() 대신 지정된 패널 안에서만 계산하여 성능이 향상됩니다.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Radio Group")
+    UPanelWidget* RadioButtonGroupPanel;
 
 
 protected:
+    virtual TSharedRef<SWidget> RebuildWidget() override;
+    virtual void SynchronizeProperties() override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Radio Button")
-	FText ButtonText;
+    UFUNCTION()
+    void OnRadioCheckStateChanged(bool bIsChecked);
 
-	virtual TSharedRef<SWidget> RebuildWidget() override;
-	UFUNCTION()
-	void OnRadioCheckStateChanged(bool bIsChecked);
+    void UpdateSiblingStates();
 
+private:
+    /** Stores the original foreground color to restore it from a dimmed state. */
+    FLinearColor NormalForegroundColor;
 };
