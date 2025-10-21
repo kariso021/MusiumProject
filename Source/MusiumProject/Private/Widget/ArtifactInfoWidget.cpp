@@ -15,30 +15,13 @@
 #include <Components/Button.h>
 #include "MusiumPlayerController.h"
 #include "..\Components\InteractionComponent.h"
+#include "Sound/SoundManagerSubsystem.h"
 
 void UArtifactInfoWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	// 위젯들 바인딩
-	if (Btn_Basic) Btn_Basic->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnBasicClicked);
-	if (Btn_Tech) Btn_Tech->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnTechClicked);
-	if (Btn_Meaning) Btn_Meaning->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnMeaningClicked);
-	if (Btn_Similar) Btn_Similar->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnSimilarClicked);
-	if (Btn_Video) Btn_Video->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnVideoClicked);
-	if (Btn_Emotion) Btn_Emotion->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnBtnEmotionClicked);
-	if (Btn_PlayPause) Btn_PlayPause->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnPlayPauseClicked);
-
-	// 볼륨 슬라이더 설정
-	if (Slider_Volume)
-	{
-		Slider_Volume->SetValue(1.0f);
-		Slider_Volume->OnValueChanged.AddDynamic(this, &UArtifactInfoWidget::OnVolumeChanged);
-		if (MediaSoundComponent)
-		{
-			MediaSoundComponent->SetVolumeMultiplier(1.0f);
-		}
-	}
+	
 
 	// 비디오 탐색 슬라이더 설정
 	if (Slider_Video)
@@ -48,6 +31,24 @@ void UArtifactInfoWidget::NativeConstruct()
 		Slider_Video->OnValueChanged.AddDynamic(this, &UArtifactInfoWidget::OnVideoSliderValueChanged);
 	}
 
+	if(Slider_EmotionVideo)
+	{
+		Slider_EmotionVideo->OnMouseCaptureBegin.AddDynamic(this, &UArtifactInfoWidget::OnVideoSliderMouseCaptureBegin);
+		Slider_EmotionVideo->OnMouseCaptureEnd.AddDynamic(this, &UArtifactInfoWidget::OnVideoSliderMouseCaptureEnd);
+		Slider_EmotionVideo->OnValueChanged.AddDynamic(this, &UArtifactInfoWidget::OnVideoSliderValueChanged);
+	}
+
+	if (Btn_PlayPause_EmotionVideo)
+	{
+		Btn_PlayPause_EmotionVideo->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnPlayPauseClicked);
+	}
+
+	if(Btn_PlayPause_Video)
+	{
+		Btn_PlayPause_Video->OnClicked.AddDynamic(this, &UArtifactInfoWidget::OnPlayPauseClicked);
+	}
+	
+
 	// ===== 핵심 변경 사항: MediaPlayer 이벤트에 함수 바인딩 =====
 	// MediaPlayer의 상태가 바뀔 때마다 해당 함수들이 자동으로 호출됩니다.
 	if (MediaPlayer)
@@ -56,6 +57,35 @@ void UArtifactInfoWidget::NativeConstruct()
 		MediaPlayer->OnPlaybackSuspended.AddUniqueDynamic(this, &UArtifactInfoWidget::HandlePlaybackPaused);
 		MediaPlayer->OnEndReached.AddUniqueDynamic(this, &UArtifactInfoWidget::HandlePlaybackEnded);
 	}
+
+
+	if(HoverButton_EmotionVideo && HoverPanel_Emotion)
+	{
+		// HoverButton_EmotionVideo에 마우스 오버 시 HoverPanel_Emotion 표시
+		HoverButton_EmotionVideo->OnHovered.AddDynamic(this, &UArtifactInfoWidget::ShowEmotionHoverPanel);
+		HoverButton_EmotionVideo->OnUnhovered.AddDynamic(this, &UArtifactInfoWidget::HideEmotionHoverPanel);
+	}
+
+	if(HoverButton_Video && HoverPanel_Video)
+	{
+		// HoverButton_Video에 마우스 오버 시 HoverPanel_Video 표시
+		HoverButton_Video->OnHovered.AddDynamic(this, &UArtifactInfoWidget::ShowVideoHoverPanel);
+		HoverButton_Video->OnUnhovered.AddDynamic(this, &UArtifactInfoWidget::HideVideoHoverPanel);
+	}
+
+	if (!GlobalSoundManager)
+	{
+		UGameInstance* GameInstance = GetGameInstance();
+		if (GameInstance)
+		{
+			USoundManagerSubsystem* SoundSubsystem = GameInstance->GetSubsystem<USoundManagerSubsystem>();
+			if (SoundSubsystem)
+			{
+				GlobalSoundManager = SoundSubsystem->GetGlobalSoundManager();
+			}
+		}
+	}
+
 }
 
 void UArtifactInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -63,13 +93,27 @@ void UArtifactInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaT
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
 	// 유저가 슬라이더를 조작하지 않을 때만 재생 시간에 맞춰 슬라이더 위치 업데이트
-	if (MediaPlayer && MediaPlayer->IsPlaying() && !bIsSeeking && Slider_Video)
+	if (MediaPlayer && MediaPlayer->IsPlaying() && !bIsSeeking)
 	{
 		const FTimespan Duration = MediaPlayer->GetDuration();
 		if (Duration.GetTotalSeconds() > 0)
 		{
 			const FTimespan CurrentTime = MediaPlayer->GetTime();
-			Slider_Video->SetValue(CurrentTime.GetTotalSeconds() / Duration.GetTotalSeconds());
+			const float NewSliderValue = CurrentTime.GetTotalSeconds() / Duration.GetTotalSeconds();
+
+			// ===== 핵심 수정: 현재 활성화된 패널에 맞는 슬라이더를 업데이트 =====
+			if (Switch_Content) // WidgetSwitcher가 유효한지 확인
+			{
+				UWidget* ActiveWidget = Switch_Content->GetActiveWidget();
+				if (ActiveWidget == card_Video && Slider_Video)
+				{
+					Slider_Video->SetValue(NewSliderValue);
+				}
+				else if (ActiveWidget == card_Emotion && Slider_EmotionVideo)
+				{
+					Slider_EmotionVideo->SetValue(NewSliderValue);
+				}
+			}
 		}
 	}
 }
@@ -77,16 +121,19 @@ void UArtifactInfoWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaT
 void UArtifactInfoWidget::SetData(const FArtifactData& Data)
 {
 	if (NameText) NameText->SetText(Data.Name);
-	if (EraText) EraText->SetText(Data.Era);
-	if (OriginText) OriginText->SetText(Data.Origin);
-	if (DescriptionText) DescriptionText->SetText(Data.Description);
-	if (TechText) TechText->SetText(Data.TechniqueDescription);
-	if (PatternMeaningText) PatternMeaningText->SetText(Data.PatternMeaning);
+	if (DiscriptionNameText) DiscriptionNameText->SetText(Data.Name);
+
 
 	ThumbnailSource = Data.Thumbnail;
+	DescriptionImageSource = Data.Description;
+	TechImageSource = Data.TechniqueDescription;
+	PatternMeaningImageSource = Data.PatternMeaning;
+	SimilarItemImageSource = Data.SimularItem;
 	DescriptionVideoSource = Data.DecriptionVideoSource;
 	EmotionVideoSource = Data.EmotionVideoSource;
 
+
+	// 비동기로 각자 불러오기
 	if (!ThumbnailSource.IsNull())
 	{
 		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
@@ -97,6 +144,71 @@ void UArtifactInfoWidget::SetData(const FArtifactData& Data)
 				if (Img_main && LoadedTexture)
 				{
 					Img_main->SetBrushFromTexture(LoadedTexture, true);
+				}
+
+				if (Img_DiscriptionThumbnail && LoadedTexture)
+				{
+					Img_DiscriptionThumbnail->SetBrushFromTexture(LoadedTexture, true);
+				}
+			});
+	}
+
+	if (!DescriptionImageSource.IsNull())
+	{
+		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+		StreamableManager.RequestAsyncLoad(DescriptionImageSource.ToSoftObjectPath(),
+			[this]()
+			{
+				UTexture2D* LoadedTexture = DescriptionImageSource.Get();
+				if (DiscriptionImage && LoadedTexture)
+				{
+					DiscriptionImage->SetBrushFromTexture(LoadedTexture, true);
+				}
+			});
+	}
+
+
+	if(!Data.TechniqueDescription.IsNull())
+	{
+		TechImageSource = Data.TechniqueDescription;
+		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+		StreamableManager.RequestAsyncLoad(TechImageSource.ToSoftObjectPath(),
+			[this]()
+			{
+				UTexture2D* LoadedTexture = TechImageSource.Get();
+				if (TechImage && LoadedTexture)
+				{
+					TechImage->SetBrushFromTexture(LoadedTexture, true);
+				}
+			});
+	}
+
+	if(!Data.PatternMeaning.IsNull())
+	{
+		PatternMeaningImageSource = Data.PatternMeaning;
+		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+		StreamableManager.RequestAsyncLoad(PatternMeaningImageSource.ToSoftObjectPath(),
+			[this]()
+			{
+				UTexture2D* LoadedTexture = PatternMeaningImageSource.Get();
+				if (PatternMeaningImage && LoadedTexture)
+				{
+					PatternMeaningImage->SetBrushFromTexture(LoadedTexture, true);
+				}
+			});
+	}
+
+	if(!Data.SimularItem.IsNull())
+	{
+		SimilarItemImageSource = Data.SimularItem;
+		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+		StreamableManager.RequestAsyncLoad(SimilarItemImageSource.ToSoftObjectPath(),
+			[this]()
+			{
+				UTexture2D* LoadedTexture = SimilarItemImageSource.Get();
+				if (SimilarItemImage && LoadedTexture)
+				{
+					SimilarItemImage->SetBrushFromTexture(LoadedTexture, true);
 				}
 			});
 	}
@@ -110,8 +222,8 @@ void UArtifactInfoWidget::SwitchTo(UWidget* Panel)
 	UWidget* CurrentPanel = Switch_Content->GetActiveWidget();
 	// 비디오 패널을 떠나는 경우, 재생 중이던 비디오를 일시정지시킵니다.
 	// StopPlaybackTracking()은 OnPlaybackPaused 이벤트가 발생하여 자동으로 처리하므로 직접 호출할 필요가 없습니다.
-	if ((CurrentPanel == Panel_Video || CurrentPanel == Panel_Emotion) &&
-		(Panel != Panel_Video && Panel != Panel_Emotion))
+	if ((CurrentPanel == card_Video || CurrentPanel == card_Emotion) &&
+		(Panel != card_Video && Panel != card_Emotion))
 	{
 		if (MediaPlayer && MediaPlayer->IsPlaying())
 		{
@@ -128,7 +240,7 @@ void UArtifactInfoWidget::SwitchTo(UWidget* Panel)
 
 void UArtifactInfoWidget::OnBtnBasicClicked()
 {
-	SwitchTo(Panel_Basic);
+	SwitchTo(card_Basic);
 	// 클릭 로그 남기기
 	UGameInstance* GameInstance = GetGameInstance();
 	if (GameInstance)
@@ -144,7 +256,7 @@ void UArtifactInfoWidget::OnBtnBasicClicked()
 
 void UArtifactInfoWidget::OnBtnTechClicked()
 {
-	SwitchTo(Panel_Tech);
+	SwitchTo(card_Tech);
 	// 클릭 로그 남기기
 	UGameInstance* GameInstance = GetGameInstance();
 	if (GameInstance)
@@ -160,7 +272,7 @@ void UArtifactInfoWidget::OnBtnTechClicked()
 
 void UArtifactInfoWidget::OnBtnMeaningClicked()
 {
-	SwitchTo(Panel_Meaning);
+	SwitchTo(card_Meaning);
 	// 클릭 로그 남기기
 	UGameInstance* GameInstance = GetGameInstance();
 	if (GameInstance)
@@ -176,7 +288,7 @@ void UArtifactInfoWidget::OnBtnMeaningClicked()
 
 void UArtifactInfoWidget::OnBtnSimilarClicked()
 {
-	SwitchTo(Panel_Similar);
+	SwitchTo(card_Similar);
 	// 클릭 로그 남기기
 	UGameInstance* GameInstance = GetGameInstance();
 	if (GameInstance)
@@ -190,17 +302,14 @@ void UArtifactInfoWidget::OnBtnSimilarClicked()
 	}
 }
 
-// ===== 변경됨: 비디오 버튼 클릭 핸들러 =====
 void UArtifactInfoWidget::OnBtnVideoClicked()
 {
-	// 1. 이전 영상의 시청 기록이 있다면 저장하고, 새 영상 기록을 위해 리셋합니다.
 	ResetPlaybackTracking(DescriptionVideoSource.Get());
+	SwitchTo(card_Video);
 
-	// 2. 비디오 패널로 전환합니다.
-	SwitchTo(Panel_Video);
+	ResetPlaybackTracking(DescriptionVideoSource.Get());
+	SwitchTo(card_Video);
 
-	// 3. 비디오 소스를 비동기 로드하고 엽니다.
-	// StartPlaybackTracking()을 직접 호출하지 않습니다. OnPlaybackResumed 이벤트가 자동으로 처리합니다.
 	if (MediaPlayer && !DescriptionVideoSource.IsNull())
 	{
 		FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
@@ -210,21 +319,26 @@ void UArtifactInfoWidget::OnBtnVideoClicked()
 				UMediaSource* LoadedSource = DescriptionVideoSource.Get();
 				if (MediaPlayer && LoadedSource)
 				{
+					MediaPlayer->OnMediaOpened.AddUniqueDynamic(this, &UArtifactInfoWidget::OnMediaOpened_AttachSound);
 					MediaPlayer->OpenSource(LoadedSource);
-					if (Img_PlayPauseIcon && PauseIcon)
+
+					if (Img_PlayPauseIcon_Video && PauseIcon)
 					{
-						Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+						Img_PlayPauseIcon_Video->SetBrushFromTexture(PauseIcon);
 					}
+
+
 				}
 			});
 	}
+
+	// 트래킹 로그
 	UGameInstance* GameInstance = GetGameInstance();
 	if (GameInstance)
 	{
 		UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
 		if (TrackingSubsystem)
 		{
-			// 어떤 버튼 클릭했는지 로그 남기기
 			TrackingSubsystem->LogClick("VideoButton");
 		}
 	}
@@ -233,7 +347,7 @@ void UArtifactInfoWidget::OnBtnVideoClicked()
 void UArtifactInfoWidget::OnBtnEmotionClicked()
 {
 	ResetPlaybackTracking(EmotionVideoSource.Get());
-	SwitchTo(Panel_Emotion);
+	SwitchTo(card_Emotion);
 
 	if (MediaPlayer && !EmotionVideoSource.IsNull())
 	{
@@ -241,13 +355,18 @@ void UArtifactInfoWidget::OnBtnEmotionClicked()
 		StreamableManager.RequestAsyncLoad(EmotionVideoSource.ToSoftObjectPath(),
 			[this]()
 			{
+				if (GlobalSoundManager && GlobalSoundManager->GetMediaSoundComponent())
+				{
+					GlobalSoundManager->GetMediaSoundComponent()->SetMediaPlayer(MediaPlayer);
+				}
+
 				UMediaSource* LoadedSource = EmotionVideoSource.Get();
 				if (MediaPlayer && LoadedSource)
 				{
 					MediaPlayer->OpenSource(LoadedSource);
-					if (Img_PlayPauseIcon && PauseIcon)
+					if (Img_PlayPauseIcon_EmotionVideo && PauseIcon)
 					{
-						Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+						Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PauseIcon);
 					}
 				}
 			});
@@ -260,6 +379,22 @@ void UArtifactInfoWidget::OnBtnEmotionClicked()
 		{
 			// 어떤 버튼 클릭했는지 로그 남기기
 			TrackingSubsystem->LogClick("EmotionVideoButton");
+		}
+	}
+}
+
+void UArtifactInfoWidget::OnBtnExplainClicked()
+{
+	SwitchTo(card_Explain);
+	// 클릭 로그 남기기
+	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		UTrackingSubsystem* TrackingSubsystem = GameInstance->GetSubsystem<UTrackingSubsystem>();
+		if (TrackingSubsystem)
+		{
+			// 어떤 버튼 클릭했는지 로그 남기기
+			TrackingSubsystem->LogClick("ExplainButton");
 		}
 	}
 }
@@ -314,38 +449,62 @@ void UArtifactInfoWidget::CloseWidget()
 	}
 }
 
+void UArtifactInfoWidget::ShowEmotionHoverPanel()
+{
+	HoverPanel_Emotion->SetVisibility(ESlateVisibility::Visible);
+}
+
+void UArtifactInfoWidget::HideEmotionHoverPanel()
+{
+	HoverPanel_Emotion->SetVisibility(ESlateVisibility::Hidden);
+}
+
+void UArtifactInfoWidget::ShowVideoHoverPanel()
+{
+	HoverPanel_Video->SetVisibility(ESlateVisibility::Visible);
+}
+
+void UArtifactInfoWidget::HideVideoHoverPanel()
+{
+	HoverPanel_Video->SetVisibility(ESlateVisibility::Hidden);
+}
+
 // ===== 변경됨: OnPlayPauseClicked 함수 대폭 단순화 =====
 void UArtifactInfoWidget::OnPlayPauseClicked()
 {
-	if (!MediaPlayer) return;
+	if (!MediaPlayer || !Switch_Content) return;
 
-	// Start/StopPlaybackTracking을 직접 호출할 필요가 없습니다.
-	// Play/Pause 명령에 따라 이벤트가 발생하여 자동으로 처리됩니다.
+	UWidget* ActiveWidget = Switch_Content->GetActiveWidget();
+
 	if (MediaPlayer->IsPlaying())
 	{
 		MediaPlayer->Pause();
-		if (Img_PlayPauseIcon && PlayIcon)
+
+		// 활성화된 패널에 따라 올바른 '재생' 아이콘으로 변경합니다.
+		if (ActiveWidget == card_Video && Img_PlayPauseIcon_Video && PlayIcon)
 		{
-			Img_PlayPauseIcon->SetBrushFromTexture(PlayIcon);
+			Img_PlayPauseIcon_Video->SetBrushFromTexture(PlayIcon);
+		}
+		else if (ActiveWidget == card_Emotion && Img_PlayPauseIcon_EmotionVideo && PlayIcon)
+		{
+			Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PlayIcon);
 		}
 	}
 	else
 	{
 		MediaPlayer->Play();
-		if (Img_PlayPauseIcon && PauseIcon)
+
+		if (ActiveWidget == card_Video && Img_PlayPauseIcon_Video && PauseIcon)
 		{
-			Img_PlayPauseIcon->SetBrushFromTexture(PauseIcon);
+			Img_PlayPauseIcon_Video->SetBrushFromTexture(PauseIcon);
+		}
+		else if (ActiveWidget == card_Emotion && Img_PlayPauseIcon_EmotionVideo && PauseIcon)
+		{
+			Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PauseIcon);
 		}
 	}
 }
 
-void UArtifactInfoWidget::OnVolumeChanged(float Value)
-{
-	if (MediaSoundComponent)
-	{
-		MediaSoundComponent->SetVolumeMultiplier(Value);
-	}
-}
 
 // ===== 변경됨: 슬라이더 조작 함수 단순화 =====
 void UArtifactInfoWidget::OnVideoSliderMouseCaptureBegin()
@@ -406,32 +565,67 @@ void UArtifactInfoWidget::HandlePlaybackEnded()
 {
 	// 재생이 완료되면 추적을 멈추고 UI를 리셋합니다.
 	StopPlaybackTracking();
-
-
-
 	if (MediaPlayer)
 	{
 		MediaPlayer->Pause();
 		MediaPlayer->Seek(FTimespan::Zero());
 	}
-	if (Img_PlayPauseIcon && PlayIcon)
+
+	if (Switch_Content)
 	{
-		Img_PlayPauseIcon->SetBrushFromTexture(PlayIcon);
-	}
-	if (Slider_Video)
-	{
-		Slider_Video->SetValue(0.0f);
+		UWidget* ActiveWidget = Switch_Content->GetActiveWidget();
+		if (ActiveWidget == card_Video)
+		{
+			if (Img_PlayPauseIcon_Video && PlayIcon)
+			{
+				Img_PlayPauseIcon_Video->SetBrushFromTexture(PlayIcon);
+			}
+			if (Slider_Video)
+			{
+				Slider_Video->SetValue(0.0f);
+			}
+		}
+		else if (ActiveWidget == card_Emotion)
+		{
+			if (Img_PlayPauseIcon_EmotionVideo && PlayIcon)
+			{
+				Img_PlayPauseIcon_EmotionVideo->SetBrushFromTexture(PlayIcon);
+			}
+			if (Slider_EmotionVideo)
+			{
+				Slider_EmotionVideo->SetValue(0.0f);
+			}
+		}
 	}
 	
 }
 
+void UArtifactInfoWidget::OnMediaOpened_AttachSound(FString OpenedUrl)
+{
+	UE_LOG(LogTemp, Warning, TEXT("EVENT: OnMediaOpened Fired! Attaching sound now. Url: %s"), *OpenedUrl);
+
+	if (GlobalSoundManager && GlobalSoundManager->GetMediaSoundComponent())
+	{
+		// 이제 MediaPlayer가 완전히 준비되었으므로, 안전하게 사운드 컴포넌트에 연결합니다.
+		GlobalSoundManager->GetMediaSoundComponent()->SetMediaPlayer(MediaPlayer);
+	}
+
+	// 이 이벤트는 한번만 필요하므로, 실행된 후에는 바로 바인딩을 해제하여 다음 영상 재생 시 중복 실행을 방지합니다.
+	if (MediaPlayer)
+	{
+		MediaPlayer->OnMediaOpened.RemoveDynamic(this, &UArtifactInfoWidget::OnMediaOpened_AttachSound);
+	}
+}
+
+
+
 
 // ===== 시청 시간 추적 핵심 함수들 =====
 
-// 변경됨: StartPlaybackTracking 함수에서 IsPlaying() 체크 제거
+
 void UArtifactInfoWidget::StartPlaybackTracking()
 {
-	// 이 함수를 호출한다는 것은 재생을 시작하려는 의도가 명확하므로 IsPlaying 체크는 불필요합니다.
+
 	if (PlaybackStartTime == 0.f && MediaPlayer)
 	{
 		PlaybackStartTime = GetWorld()->GetTimeSeconds();
@@ -450,10 +644,10 @@ void UArtifactInfoWidget::StopPlaybackTracking()
 	}
 }
 
-// 이 함수의 역할은 여전히 중요합니다 (영상 세션 관리)
+
 void UArtifactInfoWidget::ResetPlaybackTracking(UMediaSource* NewSource)
 {
-	// 1. 이전 영상의 추적을 멈추고 기록을 최종 저장합니다.
+	
 	StopPlaybackTracking();
 	if (CurrentMediaSource && AccumulatedPlaybackTime > 0.1f)
 	{
@@ -468,9 +662,7 @@ void UArtifactInfoWidget::ResetPlaybackTracking(UMediaSource* NewSource)
 		}
 	}
 
-	// 2. 새 영상을 위해 모든 변수를 초기화합니다.
 	CurrentMediaSource = NewSource;
 	AccumulatedPlaybackTime = 0.f;
 	PlaybackStartTime = 0.f;
-	UE_LOG(LogTemp, Log, TEXT("Playback tracking RESET for new source: %s"), *GetNameSafe(NewSource));
 }

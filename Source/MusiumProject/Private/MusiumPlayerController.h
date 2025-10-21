@@ -11,7 +11,7 @@
  * 
  */
 
-class SPauseMenuWidget;
+class UUserWdiget;
 
 UCLASS()
 class AMusiumPlayerController : public APlayerController
@@ -28,18 +28,28 @@ protected:
 	UInteractionUIComponent* InteractionUIComp;
 
 public:
-    // 게임 재개 함수
-    void ResumeGame();
+	UFUNCTION(BlueprintCallable, Category = "Game|Pause")
+	void ResumeGame();
+
+	UFUNCTION(BlueprintCallable, Category = "Game|Level")
+	void GoToSurveyExitLevel();
 
 protected:
     virtual void SetupInputComponent() override;
 
-    // 일시정지 메뉴를 띄우는 함수
-    void OnPauseGame();
+	UFUNCTION(BlueprintCallable, Category = "Game|Pause")
+	void OnPauseGame();
 
 private:
-    // 생성된 Slate 위젯을 가리킬 포인터
-    TSharedPtr<SPauseMenuWidget> PauseMenuWidget;
+
+
+	//Pause Menu 관련
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> PauseMenuWidgetClass;
+
+	UPROPERTY()
+	UUserWidget* PauseMenuWidgetInstance;
+
 
 
 	

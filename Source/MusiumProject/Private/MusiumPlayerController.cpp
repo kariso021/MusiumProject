@@ -16,23 +16,25 @@ AMusiumPlayerController::AMusiumPlayerController()
 
 void AMusiumPlayerController::ResumeGame()
 {
-    if (PauseMenuWidget.IsValid() && GEngine && GEngine->GameViewport)
+    if (PauseMenuWidgetInstance)
     {
-        // 1. 뷰포트에서 위젯 제거
-        GEngine->GameViewport->RemoveViewportWidgetContent(PauseMenuWidget.ToSharedRef());
+        PauseMenuWidgetInstance->RemoveFromParent();
 
-        // 2. 게임 재개
         UGameplayStatics::SetGamePaused(GetWorld(), false);
 
-        // 3. 마우스 커서 숨기기
         bShowMouseCursor = false;
 
-        // 4. 입력 모드를 '게임 전용'으로 변경
         FInputModeGameOnly InputMode;
         SetInputMode(InputMode);
+        PauseMenuWidgetInstance = nullptr;
+    }
+}
 
-        // 5. 위젯 포인터 초기화
-        PauseMenuWidget.Reset();
+void AMusiumPlayerController::GoToSurveyExitLevel()
+{
+    if (UWorld* World = GetWorld())
+    {
+        UGameplayStatics::OpenLevel(World, TEXT("ExitSurveyMap"));
     }
 }
 
@@ -48,34 +50,23 @@ void AMusiumPlayerController::SetupInputComponent()
 
 void AMusiumPlayerController::OnPauseGame()
 {
-    // 이미 메뉴가 열려있다면 닫음(게임 재개).
-    if (PauseMenuWidget.IsValid())
+    if (PauseMenuWidgetInstance)
     {
         ResumeGame();
         return;
     }
 
-    // --- 게임 일시정지 및 메뉴 생성 ---
-
-    // 1. Slate 위젯을 생성하고 포인터에 할당
-    SAssignNew(PauseMenuWidget, SPauseMenuWidget)
-        .OwningPlayerController(this); // 위젯에 컨트롤러 자신을 전달
-
-    if (PauseMenuWidget.IsValid())
+    if (PauseMenuWidgetClass)
     {
-        // 2. 뷰포트에 위젯 추가
-        GEngine->GameViewport->AddViewportWidgetContent(
-            SNew(SWeakWidget).PossiblyNullContent(PauseMenuWidget.ToSharedRef())
-        );
-
-        // 3. 게임 일시정지
-        UGameplayStatics::SetGamePaused(GetWorld(), true);
-
-        // 4. 마우스 커서 보이기
-        bShowMouseCursor = true;
-
-        // 5. 입력 모드를 '게임 및 UI'로 변경
-        FInputModeGameAndUI InputMode;
-        SetInputMode(InputMode);
+        PauseMenuWidgetInstance = CreateWidget<UUserWidget>(this, PauseMenuWidgetClass);
+        if (PauseMenuWidgetInstance)
+        {
+            PauseMenuWidgetInstance->AddToViewport();
+            UGameplayStatics::SetGamePaused(GetWorld(), true);
+            bShowMouseCursor = true;
+            FInputModeGameAndUI InputMode;
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // 마우스가 뷰포트 밖으로 나갈 수 있도록 설정
+            SetInputMode(InputMode);
+        }
     }
 }

@@ -15,6 +15,7 @@
 #include <Components/TextBlock.h>
 #include <Components/Button.h>
 #include <Components/ProgressBar.h>
+#include "MyExitSurveyWidget.h"
 
 void UMySurveyWidget::NativeConstruct()
 {
@@ -62,13 +63,12 @@ void UMySurveyWidget::NativeConstruct()
 void UMySurveyWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
-
 	if (!FMath::IsNearlyEqual(CurrentPercent, TargetPercent))
 	{
-		// FInterpTo를 사용해 현재 값을 목표 값으로 부드럽게 이동시킵니다.
+		// FInterpTo를 사용해 현재 값을 목표 값으로 부드럽게 이동
 		CurrentPercent = FMath::FInterpTo(CurrentPercent, TargetPercent, InDeltaTime, ProgressBarAnimSpeed);
 
-		// 실제 ProgressBar에 변경된 값을 적용합니다.
+		// 실제 ProgressBar에 변경된 값을 적용
 		if (SurveyProgressBar)
 		{
 			SurveyProgressBar->SetPercent(CurrentPercent);
@@ -105,13 +105,14 @@ UMyRadioButton* UMySurveyWidget::FindSelectedRadioButtonInPanel(UPanelWidget* Pa
 
 
 
+
 void UMySurveyWidget::SubmitSurvey()
 {
-	// --- 1단계: 사전조사 데이터 수집 ---
+	// --- 사전조사 데이터 수집 ---
 	TArray<FString> DemographicData;
 	for (UQuestionGroupPanel* Panel : CachedQuestionPanels)
 	{
-		// Panel이 유효하고, QuestionType이 Demographic일 때만 데이터를 수집합니다.
+		// Panel이 유효하고, QuestionType이 Demographic일 때만 데이터를 수집
 		if (Panel && Panel->QuestionType == EQuestionPanelType::Demographic)
 		{
 			if (UMyRadioButton* SelectedButton = FindSelectedRadioButtonInPanel(Panel))
@@ -124,10 +125,10 @@ void UMySurveyWidget::SubmitSurvey()
 		}
 	}
 
-	// 성향조사(Frequency) 데이터는 이미 'CollectedFrequencyCounts'에 집계되어 있고,
-	// 최종 결과(MostFrequentID)는 멤버 변수 'MostFrequentID'에 저장되어 있습니다.
+	// 성향조사(Frequency) 데이터는 이미 'CollectedFrequencyCounts'에 집계
+	// 최종 결과(MostFrequentID)는 멤버 변수 'MostFrequentID'에 저장
 
-	// --- 2단계: Tracking Subsystem으로 데이터 전송 ---
+	// ---Tracking Subsystem으로 데이터 전송 ---
 	UTrackingSubsystem* TrackingSubsystem = GetGameInstance()->GetSubsystem<UTrackingSubsystem>();
 	if (!TrackingSubsystem)
 	{
@@ -334,8 +335,7 @@ void UMySurveyWidget::ShowResultScreen()
 		}
 	}
 
-	// 만약 동점이 있을 경우에 대한 처리가 필요하다면 여기에 추가 로직을 넣을 수 있습니다.
-	// 현재는 먼저 발견된 최대값만 저장됩니다.
+	// 현재는 먼저 발견된 최대값만 저장
 
 	// --- 2. 계산된 ID로 결과 데이터 찾기 (기존 로직) ---
 	if (ResultDataTable)
@@ -346,9 +346,6 @@ void UMySurveyWidget::ShowResultScreen()
 
 		if (ResultData)
 		{
-			// 3. 위젯 내용 직접 채우기
-			ResultTitleText->SetText(ResultData->ResultTitle);
-			ResultDescriptionText->SetText(ResultData->ResultDescription);
 			if (ResultData->ResultImage.IsValid()) // Soft Ptr는 IsValid()로 확인하는 것이 더 안전합니다.
 			{
 				ResultImage->SetBrushFromTexture(ResultData->ResultImage.LoadSynchronous());

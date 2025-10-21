@@ -101,8 +101,6 @@ protected:
 	FString MostFrequentID;
 
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UImage> ResultImage;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> ResultTitleText;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> ResultDescriptionText;
 	
 
 
@@ -131,4 +129,9 @@ protected:
 	float ProgressBarAnimSpeed;
 
 	FTimerHandle TransitionTimerHandle;
+
+
+
+
+
 };
